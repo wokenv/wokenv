@@ -26,7 +26,7 @@ fi
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
+BLUE='\033[1;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
@@ -719,6 +719,7 @@ init_project() {
 	# wokenv.yml
 	if [ -f "$TEMPLATE_DIR/wokenv.yml" ]; then
 		cp "$TEMPLATE_DIR/wokenv.yml" .
+		sed -i.bak "s/__WOKENV_VERSION__/$WOKENV_VERSION/" wokenv.yml
 		sed -i.bak "s/my-$project_name/$project_slug/" wokenv.yml
 		sed -i.bak "s/type: $project_name/type: $project_name/" wokenv.yml
 		rm -f wokenv.yml.bak
