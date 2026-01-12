@@ -176,13 +176,17 @@ self_check() {
 		echo -e "${RED}✗ Docker: not installed${NC}"
 	fi
 	
-	# Check docker-compose
-	if command -v docker-compose &>/dev/null; then
+	# Check Docker Compose (V2 integrated or V1 standalone)
+	if docker compose version &>/dev/null; then
+		local compose_version
+		compose_version=$(docker compose version | sed 's/.*version //' | cut -d' ' -f1)
+		echo -e "${GREEN}✓ Docker Compose V2: $compose_version (integrated)${NC}"
+	elif command -v docker-compose &>/dev/null; then
 		local compose_version
 		compose_version=$(docker-compose --version | sed 's/.*version //' | cut -d',' -f1)
-		echo -e "${GREEN}✓ docker-compose: $compose_version${NC}"
+		echo -e "${GREEN}✓ Docker Compose V1: $compose_version (standalone)${NC}"
 	else
-		echo -e "${RED}✗ docker-compose: not installed${NC}"
+		echo -e "${RED}✗ Docker Compose: not available${NC}"
 	fi
 	
 	echo ""

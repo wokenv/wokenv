@@ -68,8 +68,15 @@ export COMPOSE_PROJECT_NAME := $(COMPOSE_PROJECT)
 export USER_ID ?= $(shell id -u)
 export GROUP_ID ?= $(shell id -g)
 
+# Detect Docker Compose command (V2 integrated or V1 standalone)
+COMPOSE_CMD := $(shell docker compose version &>/dev/null && echo "docker compose" || command -v docker-compose &>/dev/null && echo "docker-compose" || echo "")
+
+ifeq ($(COMPOSE_CMD),)
+    $(error Docker Compose not found. Install Docker with Compose V2 or standalone docker-compose)
+endif
+
 # Docker Compose with centralized config
-DOCKER_COMPOSE := docker-compose -f $(WOKENV_DIR)/docker-compose.yml
+DOCKER_COMPOSE := $(COMPOSE_CMD) -f $(WOKENV_DIR)/docker-compose.yml
 
 # Include override if it exists
 ifneq (,$(wildcard docker-compose.override.yml))

@@ -19,7 +19,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║   Wokenv Installation Script          ║${NC}"
+echo -e "${GREEN}║   Wokenv Installation Script           ║${NC}"
 echo -e "${GREEN}║   WordPress Development Environment    ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════╝${NC}"
 echo ""
@@ -45,12 +45,21 @@ if ! docker ps &>/dev/null; then
     exit 1
 fi
 
-# Check if docker-compose is installed
-if ! command -v docker-compose &>/dev/null; then
-    echo -e "${RED}Error: docker-compose is not installed.${NC}"
-    echo "Please install docker-compose first: https://docs.docker.com/compose/install/"
+# Check if Docker Compose is available (V2 integrated or V1 standalone)
+if docker compose version &>/dev/null; then
+    # Docker Compose V2 (integrated in Docker)
+    COMPOSE_CMD="docker compose"
+elif command -v docker-compose &>/dev/null; then
+    # Docker Compose V1 (standalone)
+    COMPOSE_CMD="docker-compose"
+else
+    echo -e "${RED}Error: Docker Compose is not available.${NC}"
+    echo "Docker Compose V2 is included in Docker Desktop and recent Docker Engine versions."
+    echo "See: https://docs.docker.com/compose/install/"
     exit 1
 fi
+
+echo -e "${GREEN}✓ Using: $COMPOSE_CMD${NC}"
 
 echo -e "${YELLOW}Installing Wokenv to: ${WOKENV_DIR}${NC}"
 echo ""
