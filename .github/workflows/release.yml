@@ -41,6 +41,7 @@ jobs:
             @semantic-release/commit-analyzer@latest
             @semantic-release/release-notes-generator@latest
             @semantic-release/changelog@latest
+            @semantic-release/exec@latest
             @semantic-release/git@latest
             @semantic-release/github@latest
             conventional-changelog-conventionalcommits@latest
