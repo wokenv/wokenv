@@ -67,7 +67,7 @@ echo ""
 # Create directory if it doesn't exist
 if [ -d "$WOKENV_DIR" ]; then
     echo -e "${YELLOW}Wokenv directory already exists.${NC}"
-    read -p "Do you want to update it? [y/N] " -n 1 -r
+    read -p "Do you want to update it? [y/N] " -n 1 -r </dev/tty
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         echo "Installation cancelled."
@@ -86,13 +86,6 @@ chmod +x "$WOKENV_DIR/bin/wokenv"
 chmod +x "$WOKENV_DIR/install.sh"
 chmod +x "$WOKENV_DIR/lib/parse_yaml.py"
 
-# Pull Docker image
-echo ""
-echo "Pulling Wokenv Docker image..."
-docker pull frugan/wokenv:latest || {
-    echo -e "${YELLOW}Warning: Could not pull Docker image. Will be pulled on first use.${NC}"
-}
-
 # Install wokenv binary
 echo ""
 echo "Installing 'wokenv' command..."
@@ -110,7 +103,7 @@ if [ -d "$HOME/.local/bin" ]; then
     fi
 # Try /usr/local/bin as fallback (requires sudo)
 elif [ -w "/usr/local/bin" ] || sudo -n true 2>/dev/null; then
-    read -p "Install 'wokenv' to /usr/local/bin (requires sudo)? [y/N] " -n 1 -r
+    read -p "Install 'wokenv' to /usr/local/bin (requires sudo)? [y/N] " -n 1 -r </dev/tty
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         sudo ln -sf "$WOKENV_DIR/bin/wokenv" /usr/local/bin/wokenv
@@ -124,6 +117,20 @@ else
     echo "   Create ~/.local/bin or run with sudo to install to /usr/local/bin"
 fi
 
+# Optional Docker image pull
+echo ""
+read -p "Pull default Docker image (frugan/wokenv:latest) now? [Y/n] " -n 1 -r </dev/tty
+echo
+if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+    echo ""
+    echo "Pulling Wokenv Docker image..."
+    docker pull frugan/wokenv:latest || {
+        echo -e "${YELLOW}Warning: Could not pull Docker image. Will be pulled on first use.${NC}"
+    }
+else
+    echo "Skipped Docker image pull. Image will be pulled on first use."
+fi
+
 # Optional dependencies
 echo ""
 echo -e "${CYAN}════════════════════════════════════════${NC}"
@@ -132,11 +139,11 @@ echo -e "${CYAN}═════════════════════�
 echo ""
 echo "Wokenv can use optional dependencies for robust YAML parsing:"
 echo ""
-echo "1. ${GREEN}yq${NC} - Fast YAML processor (recommended)"
+echo -e "1. ${GREEN}yq${NC} - Fast YAML processor (recommended)"
 echo "   • Best performance and reliability"
 echo "   • Handles complex YAML files"
 echo ""
-echo "2. ${GREEN}PyYAML${NC} - Python YAML library (alternative)"
+echo -e "2. ${GREEN}PyYAML${NC} - Python YAML library (alternative)"
 echo "   • Good reliability"
 echo "   • Requires Python 3"
 echo ""
@@ -273,7 +280,7 @@ if [ "$HAS_YQ" = false ] && [ "$HAS_PYYAML" = false ]; then
     echo "  3) Install both"
     echo "  4) Skip (can install later with: wokenv self-install-deps)"
     echo ""
-    read -p "Enter choice [1-4]: " dep_choice
+    read -p "Enter choice [1-4]: " dep_choice </dev/tty
 
     case $dep_choice in
     1)
@@ -288,7 +295,7 @@ if [ "$HAS_YQ" = false ] && [ "$HAS_PYYAML" = false ]; then
         ;;
     4)
         echo "Skipping optional dependencies."
-        echo "You can install them later with: ${CYAN}wokenv self-install-deps${NC}"
+        echo -e "You can install them later with: ${CYAN}wokenv self-install-deps${NC}"
         ;;
     *)
         echo "Invalid choice. Skipping optional dependencies."
@@ -319,13 +326,13 @@ echo "  1. Navigate to your project directory:"
 echo "     cd /path/to/your-project"
 echo ""
 echo "  2. Initialize the project:"
-echo "     ${CYAN}wokenv init${NC}"
+echo -e "     ${CYAN}wokenv init${NC}"
 echo ""
 echo "  3. Follow the guided setup, then install dependencies (optional):"
-echo "     ${CYAN}wokenv install${NC}"
+echo -e "     ${CYAN}wokenv install${NC}"
 echo ""
 echo "  4. Start WordPress:"
-echo "     ${CYAN}wokenv start${NC}"
+echo -e "     ${CYAN}wokenv start${NC}"
 echo ""
 echo "  5. Access your environment:"
 echo "     WordPress:    http://localhost:8888"
@@ -334,10 +341,10 @@ echo "     Mailpit:      http://localhost:8025"
 echo "     phpMyAdmin:   http://localhost:9000"
 echo ""
 echo "Useful commands:"
-echo "  • ${CYAN}wokenv help${NC}              - Show all commands"
-echo "  • ${CYAN}wokenv self-check${NC}        - Verify installation"
-echo "  • ${CYAN}wokenv self-install-deps${NC} - Install optional dependencies"
-echo "  • ${CYAN}wokenv self-update${NC}       - Update to latest version"
+echo -e "  • ${CYAN}wokenv help${NC}              - Show all commands"
+echo -e "  • ${CYAN}wokenv self-check${NC}        - Verify installation"
+echo -e "  • ${CYAN}wokenv self-install-deps${NC} - Install optional dependencies"
+echo -e "  • ${CYAN}wokenv self-update${NC}       - Update to latest version"
 echo ""
 echo "Documentation: ${REPO_URL}"
 echo ""
