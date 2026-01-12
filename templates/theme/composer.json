@@ -1,0 +1,83 @@
+{
+  "name": "my-vendor/my-theme",
+  "description": "WordPress theme development with Wokenv",
+  "license": "GPL-3.0-or-later",
+  "type": "wordpress-theme",
+  "require": {
+    "php": "^8.0"
+  },
+  "require-dev": {
+    "composer/installers": "^1.0 || ^2.0",
+    "ergebnis/composer-normalize": "^2.48",
+    "friendsofphp/php-cs-fixer": "^3.92",
+    "phpunit/phpunit": "^9.0 || ^10.0 || ^11.0 || ^12.0",
+    "roave/security-advisories": "dev-latest",
+    "wp-spaghetti/bedrock-autoloader-mu": "^1.0",
+    "wp-spaghetti/wonolog": "^0.2",
+    "wpackagist-plugin/debug-bar": "^1.1",
+    "wpackagist-plugin/mailvat": "^1.0",
+    "wpackagist-plugin/query-monitor": "^3.16",
+    "wpackagist-plugin/rewrite-rules-inspector": "^1.4",
+    "wpackagist-plugin/theme-check": "*",
+    "wpackagist-plugin/wp-cfm": "^1.7",
+    "wpackagist-plugin/wp-crontrol": "^1.19",
+    "wpackagist-plugin/wp-debugging": "^2.11"
+  },
+  "repositories": [
+    {
+      "type": "composer",
+      "url": "https://wpackagist.org",
+      "only": [
+        "wpackagist-plugin/*"
+      ]
+    },
+    {
+      "type": "package",
+      "package": {
+        "name": "wp-spaghetti/wonolog",
+        "type": "wordpress-plugin",
+        "version": "0.2.0",
+        "dist": {
+          "type": "zip",
+          "url": "https://github.com/wp-spaghetti/wonolog/releases/download/v0.2.0/wonolog.zip"
+        }
+      }
+    }
+  ],
+  "config": {
+    "allow-plugins": {
+      "composer/installers": true,
+      "dealerdirect/phpcodesniffer-composer-installer": true,
+      "ergebnis/composer-normalize": true
+    },
+    "optimize-autoloader": true,
+    "sort-packages": true
+  },
+  "extra": {
+    "installer-paths": {
+      "../../mu-plugins/{$name}/": [
+        "type:wordpress-muplugin",
+        "wp-spaghetti/wonolog"
+      ],
+      "../../plugins/{$name}/": [
+        "type:wordpress-plugin"
+      ],
+      "../{$name}/": [
+        "type:wordpress-theme"
+      ]
+    }
+  },
+  "scripts": {
+    "post-install-cmd": [
+      "@copy-bedrock-autoloader-mu"
+    ],
+    "post-update-cmd": [
+      "@copy-bedrock-autoloader-mu"
+    ],
+    "copy-bedrock-autoloader-mu": [
+      "WpSpaghetti\\BedrockAutoloader\\CopyHelper::copy"
+    ],
+    "lint": "@lint:fix --dry-run",
+    "lint:fix": "@php -d max_execution_time=0 -d memory_limit=-1 -f ./vendor/bin/php-cs-fixer fix --diff --using-cache=no"
+  }
+}

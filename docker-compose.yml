@@ -1,0 +1,46 @@
+# Wokenv Centralized Docker Compose
+# This file lives in ~/.wokenv/ and is used by all projects
+# Projects can extend with docker-compose.override.yml
+
+services:
+  wokenv:
+    image: ${WOKENV_IMAGE:-frugan/wokenv:latest}
+    container_name: ${COMPOSE_PROJECT_NAME:-wokenv}-wokenv
+    volumes:
+      - ${PROJECT_DIR:-.}:${PROJECT_DIR:-.}
+      - ${HOME}/.wp-env:/home/node/.wp-env
+      - /var/run/docker.sock:/var/run/docker.sock
+    working_dir: ${PROJECT_DIR:-.}
+    environment:
+      - USER_ID=${USER_ID:-1000}
+      - GROUP_ID=${GROUP_ID:-1000}
+    networks:
+      - wokenv
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-wokenv}-mailpit
+    ports:
+      - "${MAILPIT_WEB_PORT:-8025}:8025"
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+    networks:
+      - wokenv
+    restart: unless-stopped
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-wokenv}-phpmyadmin
+    environment:
+      PMA_ARBITRARY: 1
+      PMA_HOST: ${COMPOSE_PROJECT_NAME:-wokenv}-mysql-1
+      PMA_USER: root
+      PMA_PASSWORD: password
+    ports:
+      - "${PHPMYADMIN_PORT:-9000}:80"
+    networks:
+      - wokenv
+    restart: unless-stopped
+
+networks:
+  wokenv:
+    name: ${COMPOSE_PROJECT_NAME:-wokenv}-network

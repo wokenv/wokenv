@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/wokenv/wokenv/main/schemas/wokenv-schema.json",
+  "title": "Wokenv Configuration",
+  "description": "Configuration file for Wokenv WordPress development environment",
+  "type": "object",
+  "properties": {
+    "image": {
+      "type": "object",
+      "description": "Docker image configuration",
+      "properties": {
+        "node": {
+          "type": "integer",
+          "description": "Node.js version",
+          "enum": [18, 20, 22],
+          "default": 20
+        },
+        "variant": {
+          "type": "string",
+          "description": "Base OS variant",
+          "enum": ["alpine", "bookworm", "trixie"],
+          "default": "alpine"
+        },
+        "wpenv": {
+          "type": "integer",
+          "description": "wp-env major version",
+          "default": 10
+        },
+        "tag": {
+          "type": "string",
+          "description": "Full Docker image tag (overrides node/variant/wpenv)",
+          "pattern": "^[a-z0-9/:.-]+$"
+        }
+      }
+    },
+    "user_id": {
+      "type": "integer",
+      "description": "User ID for file permissions",
+      "minimum": 0
+    },
+    "group_id": {
+      "type": "integer",
+      "description": "Group ID for file permissions",
+      "minimum": 0
+    },
+    "type": {
+      "type": "string",
+      "description": "Project type (auto-detected if not specified)",
+      "enum": ["plugin", "theme", "core"]
+    }
+  }
+}

@@ -1,0 +1,44 @@
+# Example docker-compose.override.yml
+# 
+# This file demonstrates how to extend Wokenv with custom services.
+# Copy to docker-compose.override.yml and customize as needed.
+# 
+# docker-compose.override.yml is gitignored by default.
+
+services:
+  # Override wokenv service (optional)
+  # wokenv:
+  #   # Use different image for testing
+  #   image: frugan/wokenv:node22-alpine-wpenv10
+  #   
+  #   # Add custom environment variables
+  #   environment:
+  #     - CUSTOM_VAR=value
+
+  # Add custom services that share the same network
+  # 
+  # Example: Redis cache
+  # redis:
+  #   image: redis:alpine
+  #   container_name: ${COMPOSE_PROJECT_NAME}-redis
+  #   ports:
+  #     - "6379:6379"
+  #   networks:
+  #     - wokenv
+  #
+  # Example: Elasticsearch for search
+  # elasticsearch:
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:latest
+  #   container_name: ${COMPOSE_PROJECT_NAME}-elasticsearch
+  #   environment:
+  #     - discovery.type=single-node
+  #     - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+  #   ports:
+  #     - "9200:9200"
+  #   networks:
+  #     - wokenv
+
+networks:
+  wokenv:
+    external: true
+    name: ${COMPOSE_PROJECT_NAME}-network

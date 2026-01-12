@@ -1,0 +1,50 @@
+# Environment
+.env
+docker-compose.override.yml
+
+# Node
+node_modules/
+npm-debug.log
+package-lock.json
+.npm/
+
+# Composer
+vendor/
+composer.lock
+
+# WordPress
+.wp-env/
+.wp-env.override.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+dist/
+build/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+.tmp/
+
+# Linter
+megalinter-reports/
+*.cache
+core.*
+
+# Various
+.claude*
+venv/
+__pycache__/
+*.pyc

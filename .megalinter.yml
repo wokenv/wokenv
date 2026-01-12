@@ -1,0 +1,23 @@
+APPLY_FIXES: all
+SHOW_ELAPSED_TIME: true
+
+# Enable only relevant linters
+#ENABLE:
+#  - BASH
+#  - MARKDOWN
+#  - PYTHON
+#  - YAML
+
+# Bash linting
+BASH_SHELLCHECK_ARGUMENTS: "-e SC2086 -e SC2046"
+
+# Exclude patterns
+EXCLUDED_DIRECTORIES:
+  - templates
+  - .github
+  - megalinter-reports
+  - node_modules
+  - vendor
+
+# File patterns
+FILTER_REGEX_INCLUDE: "(\\.sh$|\\.ya?ml$|\\.md$)"

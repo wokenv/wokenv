@@ -1,0 +1,56 @@
+# Node
+node_modules/
+npm-debug.log
+package-lock.json
+.npm/
+
+# Semantic Release
+.release/
+
+# Composer
+vendor/
+composer.lock
+
+# WordPress
+.wp-env/
+.wp-env.override.json
+
+# Environment
+.env*
+!.env.dist
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+dist/
+build/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+.tmp/
+
+# Various
+.claude*
+venv/
+__pycache__/
+*.pyc
+
+# Linter
+megalinter-reports/
+*.cache
+core.*
+
+# Makefile local overrides
+Makefile.local

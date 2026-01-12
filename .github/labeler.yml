@@ -1,0 +1,18 @@
+# Auto-label PRs based on changed files
+"area: core":
+  - any: ["bin/**", "Makefile", "wokenv.yml", "*.sh"]
+
+"area: templates":
+  - any: ["templates/**", "generic-plugin.php", "style.css", "functions.php"]
+
+"area: tests":
+  - any: ["tests/**"]
+
+"area: docs":
+  - any: ["*.md", "docs/**"]
+
+"area: ci/cd":
+  - any: [".github/**"]
+
+"area: dependencies":
+  - any: ["package.json", "composer.json", "package-lock.json", "composer.lock"]

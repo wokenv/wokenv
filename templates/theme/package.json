@@ -1,0 +1,18 @@
+{
+  "name": "my-theme",
+  "version": "1.0.0",
+  "description": "WordPress theme development with Wokenv",
+  "private": true,
+  "scripts": {
+    "env:start": "wp-env start",
+    "env:stop": "wp-env stop",
+    "env:destroy": "wp-env destroy",
+    "env:cli": "wp-env run cli",
+    "env:composer": "wp-env run cli --env-cwd=wp-content/themes/$(basename $(pwd)) composer",
+    "env:test": "wp-env run tests-cli --env-cwd=wp-content/themes/$(basename $(pwd)) vendor/bin/phpunit"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
