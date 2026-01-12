@@ -84,7 +84,6 @@ fi
 # Make scripts executable
 chmod +x "$WOKENV_DIR/bin/wokenv"
 chmod +x "$WOKENV_DIR/install.sh"
-chmod +x "$WOKENV_DIR/lib/parse_yaml.py"
 
 # Install wokenv binary
 echo ""
@@ -118,18 +117,18 @@ else
 fi
 
 # Optional Docker image pull
-echo ""
-read -p "Pull default Docker image (frugan/wokenv:latest) now? [Y/n] " -n 1 -r </dev/tty
-echo
-if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-    echo ""
-    echo "Pulling Wokenv Docker image..."
-    docker pull frugan/wokenv:latest || {
-        echo -e "${YELLOW}Warning: Could not pull Docker image. Will be pulled on first use.${NC}"
-    }
-else
-    echo "Skipped Docker image pull. Image will be pulled on first use."
-fi
+#echo ""
+#read -p "Pull default Docker image (frugan/wokenv:latest) now? [Y/n] " -n 1 -r </dev/tty
+#echo
+#if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+#    echo ""
+#    echo "Pulling Wokenv Docker image..."
+#    docker pull frugan/wokenv:latest || {
+#        echo -e "${YELLOW}Warning: Could not pull Docker image. Will be pulled on first use.${NC}"
+#    }
+#else
+#    echo "Skipped Docker image pull. Image will be pulled on first use."
+#fi
 
 # Optional dependencies
 echo ""
@@ -280,7 +279,7 @@ if [ "$HAS_YQ" = false ] && [ "$HAS_PYYAML" = false ]; then
     echo "  3) Install both"
     echo "  4) Skip (can install later with: wokenv self-install-deps)"
     echo ""
-    read -p "Enter choice [1-4]: " dep_choice </dev/tty
+    read -p "Enter choice [1-4]: " -r dep_choice </dev/tty
 
     case $dep_choice in
     1)

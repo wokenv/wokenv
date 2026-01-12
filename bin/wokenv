@@ -33,7 +33,7 @@ get_project_version() {
 		echo "0.0.0"
 		return
 	fi
-	
+
 	# Simple YAML parsing for version field
 	grep "^version:" wokenv.yml 2>/dev/null | sed 's/version: *["'\'']*\([^"'\'']*\)["'\'']*/\1/' | tr -d ' '
 }
@@ -42,21 +42,21 @@ get_project_version() {
 check_project_version() {
 	local project_version
 	project_version=$(get_project_version)
-	
+
 	if [ "$project_version" = "0.0.0" ]; then
 		# No wokenv.yml found, skip version check
 		return
 	fi
-	
+
 	# Simple version comparison (major.minor.patch)
 	local current_major current_minor
 	current_major=$(echo "$WOKENV_VERSION" | cut -d. -f1)
 	current_minor=$(echo "$WOKENV_VERSION" | cut -d. -f2)
-	
+
 	local project_major project_minor
 	project_major=$(echo "$project_version" | cut -d. -f1)
 	project_minor=$(echo "$project_version" | cut -d. -f2)
-	
+
 	# Check major version mismatch
 	if [ "$current_major" != "$project_major" ]; then
 		echo -e "${YELLOW}╔════════════════════════════════════════╗${NC}"
@@ -69,7 +69,7 @@ check_project_version() {
 		echo -e "${RED}Major version mismatch detected!${NC}"
 		echo "This may cause compatibility issues."
 		echo ""
-		read -p "Continue anyway? [y/N] " -n 1 -r
+		read -p "Continue anyway? [y/N] " -n 1 -r </dev/tty
 		echo
 		if [[ ! $REPLY =~ ^[Yy]$ ]]; then
 			echo "Operation cancelled."
@@ -89,33 +89,33 @@ show_help() {
 	echo "Usage: wokenv <command> [options]"
 	echo ""
 	echo "Project Commands:"
-	echo "  ${GREEN}init${NC}               Initialize project with guided setup"
-	echo "  ${GREEN}install${NC}            Install npm and composer dependencies"
-	echo "  ${GREEN}start${NC}              Start WordPress environment"
-	echo "  ${GREEN}stop${NC}               Stop WordPress environment"
-	echo "  ${GREEN}restart${NC}            Restart WordPress environment"
-	echo "  ${GREEN}destroy${NC}            Destroy environment (deletes all data)"
-	echo "  ${GREEN}cli${NC}                Open WP-CLI in WordPress container"
-	echo "  ${GREEN}shell${NC}              Open bash shell in WordPress container"
-	echo "  ${GREEN}node-install${NC}       Install npm dependencies"
-	echo "  ${GREEN}composer-install${NC}   Install composer dependencies"
-	echo "  ${GREEN}composer-update${NC}    Update composer dependencies"
-	echo "  ${GREEN}test${NC}               Run PHPUnit tests"
-	echo "  ${GREEN}mysql${NC}              Access MySQL database"
-	echo "  ${GREEN}reset-db${NC}           Reset database (WARNING: deletes all data)"
-	echo "  ${GREEN}fix-perms${NC}          Fix WordPress file permissions"
-	echo "  ${GREEN}clean${NC}              Remove node_modules and vendor"
-	echo "  ${GREEN}info${NC}               Show environment information"
+	echo -e "  ${GREEN}init${NC}               Initialize project with guided setup"
+	echo -e "  ${GREEN}install${NC}            Install npm and composer dependencies"
+	echo -e "  ${GREEN}start${NC}              Start WordPress environment"
+	echo -e "  ${GREEN}stop${NC}               Stop WordPress environment"
+	echo -e "  ${GREEN}restart${NC}            Restart WordPress environment"
+	echo -e "  ${GREEN}destroy${NC}            Destroy environment (deletes all data)"
+	echo -e "  ${GREEN}cli${NC}                Open WP-CLI in WordPress container"
+	echo -e "  ${GREEN}shell${NC}              Open bash shell in WordPress container"
+	echo -e "  ${GREEN}node-install${NC}       Install npm dependencies"
+	echo -e "  ${GREEN}composer-install${NC}   Install composer dependencies"
+	echo -e "  ${GREEN}composer-update${NC}    Update composer dependencies"
+	echo -e "  ${GREEN}test${NC}               Run PHPUnit tests"
+	echo -e "  ${GREEN}mysql${NC}              Access MySQL database"
+	echo -e "  ${GREEN}reset-db${NC}           Reset database (WARNING: deletes all data)"
+	echo -e "  ${GREEN}fix-perms${NC}          Fix WordPress file permissions"
+	echo -e "  ${GREEN}clean${NC}              Remove node_modules and vendor"
+	echo -e "  ${GREEN}info${NC}               Show environment information"
 	echo ""
 	echo "Wokenv Management (self-* commands):"
-	echo "  ${GREEN}self-update${NC}        Update Wokenv to latest version"
-	echo "  ${GREEN}self-install-deps${NC}  Install optional dependencies (yq, PyYAML)"
-	echo "  ${GREEN}self-check${NC}         Check Wokenv installation and dependencies"
-	echo "  ${GREEN}self-info${NC}          Show Wokenv installation details"
+	echo -e "  ${GREEN}self-update${NC}        Update Wokenv to latest version"
+	echo -e "  ${GREEN}self-install-deps${NC}  Install optional dependencies (yq, PyYAML)"
+	echo -e "  ${GREEN}self-check${NC}         Check Wokenv installation and dependencies"
+	echo -e "  ${GREEN}self-info${NC}          Show Wokenv installation details"
 	echo ""
 	echo "Other:"
-	echo "  ${GREEN}help${NC}               Show this help message"
-	echo "  ${GREEN}version${NC}            Show Wokenv version"
+	echo -e "  ${GREEN}help${NC}               Show this help message"
+	echo -e "  ${GREEN}version${NC}            Show Wokenv version"
 	echo ""
 	echo "Examples:"
 	echo "  wokenv init                    # Initialize new project"
@@ -132,7 +132,7 @@ self_check() {
 	echo -e "${CYAN}║   Wokenv Installation Check           ║${NC}"
 	echo -e "${CYAN}╚════════════════════════════════════════╝${NC}"
 	echo ""
-	
+
 	# Check Wokenv directory
 	if [ -d "$WOKENV_DIR" ]; then
 		echo -e "${GREEN}✓ Wokenv directory: $WOKENV_DIR${NC}"
@@ -140,7 +140,7 @@ self_check() {
 		echo -e "${RED}✗ Wokenv directory not found${NC}"
 		return 1
 	fi
-	
+
 	# Check git repository
 	if [ -d "$WOKENV_DIR/.git" ]; then
 		cd "$WOKENV_DIR"
@@ -150,23 +150,23 @@ self_check() {
 	else
 		echo -e "${YELLOW}⚠ Not a git repository${NC}"
 	fi
-	
+
 	# Check wokenv command
 	if command -v wokenv &>/dev/null; then
 		echo -e "${GREEN}✓ Command 'wokenv' is in PATH${NC}"
 	else
 		echo -e "${YELLOW}⚠ Command 'wokenv' not in PATH${NC}"
 	fi
-	
+
 	echo ""
 	echo "Dependencies:"
-	
+
 	# Check Docker
 	if command -v docker &>/dev/null; then
 		local docker_version
 		docker_version=$(docker --version | sed 's/Docker version //' | cut -d',' -f1)
 		echo -e "${GREEN}✓ Docker: $docker_version${NC}"
-		
+
 		if docker ps &>/dev/null; then
 			echo -e "${GREEN}  Daemon: running${NC}"
 		else
@@ -175,7 +175,7 @@ self_check() {
 	else
 		echo -e "${RED}✗ Docker: not installed${NC}"
 	fi
-	
+
 	# Check Docker Compose (V2 integrated or V1 standalone)
 	if docker compose version &>/dev/null; then
 		local compose_version
@@ -188,10 +188,10 @@ self_check() {
 	else
 		echo -e "${RED}✗ Docker Compose: not available${NC}"
 	fi
-	
+
 	echo ""
 	echo "Optional Dependencies (for YAML parsing):"
-	
+
 	# Check yq
 	if command -v yq &>/dev/null; then
 		local yq_version
@@ -200,12 +200,12 @@ self_check() {
 	else
 		echo -e "${YELLOW}○ yq: not installed${NC}"
 	fi
-	
+
 	# Check Python + PyYAML
 	if command -v python3 &>/dev/null; then
 		local python_version
 		python_version=$(python3 --version | sed 's/Python //')
-		
+
 		if python3 -c "import yaml" 2>/dev/null; then
 			local pyyaml_version
 			pyyaml_version=$(python3 -c "import yaml; print(yaml.__version__)" 2>/dev/null || echo "unknown")
@@ -216,10 +216,10 @@ self_check() {
 	else
 		echo -e "${YELLOW}○ Python: not installed${NC}"
 	fi
-	
+
 	echo ""
 	echo "Current YAML Parser:"
-	
+
 	# Determine which parser will be used
 	if command -v yq &>/dev/null; then
 		echo -e "${GREEN}  Using: yq (optimal)${NC}"
@@ -231,7 +231,7 @@ self_check() {
 		echo -e "${YELLOW}  ⚠️  Recommended: Install yq or PyYAML for robust parsing${NC}"
 		echo "     Run: wokenv self-install-deps"
 	fi
-	
+
 	echo ""
 }
 
@@ -241,25 +241,25 @@ self_info() {
 	echo -e "${CYAN}║   Wokenv Information                   ║${NC}"
 	echo -e "${CYAN}╚════════════════════════════════════════╝${NC}"
 	echo ""
-	
+
 	echo "Version:        $WOKENV_VERSION"
 	echo "Install Path:   $WOKENV_DIR"
-	
+
 	if [ -d "$WOKENV_DIR/.git" ]; then
 		cd "$WOKENV_DIR"
 		local git_version
 		git_version=$(git describe --tags --always 2>/dev/null || echo "unknown")
 		echo "Git Version:    $git_version"
-		
+
 		local git_remote
 		git_remote=$(git remote get-url origin 2>/dev/null || echo "unknown")
 		echo "Repository:     $git_remote"
-		
+
 		local git_branch
 		git_branch=$(git branch --show-current 2>/dev/null || echo "unknown")
 		echo "Branch:         $git_branch"
 	fi
-	
+
 	echo ""
 	echo "Files:"
 	echo "  • docker-compose.yml"
@@ -278,7 +278,7 @@ self_install_deps() {
 	echo -e "${CYAN}║   Install Optional Dependencies       ║${NC}"
 	echo -e "${CYAN}╚════════════════════════════════════════╝${NC}"
 	echo ""
-	
+
 	echo "Optional dependencies improve YAML parsing reliability:"
 	echo ""
 	echo "1. ${GREEN}yq${NC} - Fast YAML processor (recommended)"
@@ -291,62 +291,76 @@ self_install_deps() {
 	echo ""
 	echo "Without these, Wokenv uses basic grep/sed parsing (works but fragile)."
 	echo ""
-	
+
 	# Check what's already installed
 	local has_yq=false
 	local has_pyyaml=false
-	
+
 	if command -v yq &>/dev/null; then
 		has_yq=true
 		echo -e "${GREEN}✓ yq is already installed${NC}"
 	fi
-	
+
 	if command -v python3 &>/dev/null && python3 -c "import yaml" 2>/dev/null; then
 		has_pyyaml=true
 		echo -e "${GREEN}✓ PyYAML is already installed${NC}"
 	fi
-	
-	if [ "$has_yq" = true ]; then
+
+	if [ "$has_yq" = true ] && [ "$has_pyyaml" = true ]; then
+		echo ""
+		echo "You already have both yq and PyYAML installed!"
+		echo "Installation complete."
+		return 0
+	elif [ "$has_yq" = true ]; then
 		echo ""
 		echo "You already have the best option (yq) installed!"
-		read -p "Install PyYAML anyway? [y/N] " -n 1 -r
+		read -r -p "Install PyYAML anyway? [y/N] " -n 1 </dev/tty
+		echo
+		if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+			echo "Installation complete."
+			return 0
+		fi
+	elif [ "$has_pyyaml" = true ]; then
+		echo ""
+		echo -e "${GREEN}✓ PyYAML is already installed${NC}"
+		read -r -p "Install yq anyway? [y/N] " -n 1 </dev/tty
 		echo
 		if [[ ! $REPLY =~ ^[Yy]$ ]]; then
 			echo "Installation complete."
 			return 0
 		fi
 	fi
-	
+
 	echo ""
 	echo "What would you like to install?"
 	echo "  1) yq only (recommended)"
 	echo "  2) PyYAML only"
 	echo "  3) Both"
 	echo "  4) Cancel"
-	read -p "Enter choice [1-4]: " choice
+	read -r -p "Enter choice [1-4]: " choice </dev/tty
 	echo ""
-	
+
 	case $choice in
-		1)
-			install_yq
-			;;
-		2)
-			install_pyyaml
-			;;
-		3)
-			install_yq
-			install_pyyaml
-			;;
-		4)
-			echo "Installation cancelled."
-			return 0
-			;;
-		*)
-			echo -e "${RED}Invalid choice.${NC}"
-			return 1
-			;;
+	1)
+		install_yq
+		;;
+	2)
+		install_pyyaml
+		;;
+	3)
+		install_yq
+		install_pyyaml
+		;;
+	4)
+		echo "Installation cancelled."
+		return 0
+		;;
+	*)
+		echo -e "${RED}Invalid choice.${NC}"
+		return 1
+		;;
 	esac
-	
+
 	echo ""
 	echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
 	echo -e "${GREEN}║   Installation Complete!               ║${NC}"
@@ -358,7 +372,7 @@ self_install_deps() {
 # Install yq
 install_yq() {
 	echo -e "${BLUE}Installing yq...${NC}"
-	
+
 	if [[ "$OSTYPE" == "darwin"* ]]; then
 		# macOS
 		if command -v brew &>/dev/null; then
@@ -376,34 +390,34 @@ install_yq() {
 		local ARCH
 		ARCH=$(uname -m)
 		local YQ_BINARY
-		
+
 		case $ARCH in
-			x86_64)
-				YQ_BINARY="yq_linux_amd64"
-				;;
-			aarch64|arm64)
-				YQ_BINARY="yq_linux_arm64"
-				;;
-			*)
-				echo -e "${RED}Unsupported architecture: $ARCH${NC}"
-				echo "Install manually from: https://github.com/mikefarah/yq#install"
-				return 1
-				;;
+		x86_64)
+			YQ_BINARY="yq_linux_amd64"
+			;;
+		aarch64 | arm64)
+			YQ_BINARY="yq_linux_arm64"
+			;;
+		*)
+			echo -e "${RED}Unsupported architecture: $ARCH${NC}"
+			echo "Install manually from: https://github.com/mikefarah/yq#install"
+			return 1
+			;;
 		esac
-		
+
 		echo "Downloading yq ${YQ_VERSION} for ${ARCH}..."
-		
+
 		if ! wget -q "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/${YQ_BINARY}" -O /tmp/yq; then
 			echo -e "${RED}Failed to download yq${NC}"
 			return 1
 		fi
-		
+
 		chmod +x /tmp/yq
-		
+
 		# Try ~/.local/bin first
 		if mkdir -p "$HOME/.local/bin" 2>/dev/null && mv /tmp/yq "$HOME/.local/bin/yq"; then
 			echo -e "${GREEN}✓ yq installed to ~/.local/bin/yq${NC}"
-			
+
 			# Check if in PATH
 			if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
 				echo -e "${YELLOW}⚠️  Add ~/.local/bin to your PATH:${NC}"
@@ -428,18 +442,18 @@ install_yq() {
 # Install PyYAML
 install_pyyaml() {
 	echo -e "${BLUE}Installing PyYAML...${NC}"
-	
+
 	# Check Python
 	if ! command -v python3 &>/dev/null; then
 		echo -e "${RED}Python 3 is not installed.${NC}"
 		echo "Install Python first, then run this command again."
 		return 1
 	fi
-	
+
 	local python_version
 	python_version=$(python3 --version | sed 's/Python //')
 	echo "Python version: $python_version"
-	
+
 	# Try pip install
 	if command -v pip3 &>/dev/null; then
 		echo "Installing PyYAML via pip..."
@@ -489,11 +503,49 @@ self_update() {
 
 	# Check if there are updates
 	LOCAL=$(git rev-parse @)
-	REMOTE=$(git rev-parse @{u} 2>/dev/null || git rev-parse origin/main)
+	REMOTE=$(git rev-parse '@{u}' 2>/dev/null || git rev-parse origin/main)
 
 	if [ "$LOCAL" = "$REMOTE" ]; then
 		echo -e "${GREEN}✓ Wokenv is already up to date (${CURRENT_VERSION})${NC}"
 		exit 0
+	fi
+
+	# Check for local changes
+	if ! git diff-index --quiet HEAD -- 2>/dev/null; then
+		echo ""
+		echo -e "${YELLOW}⚠️  You have local changes in Wokenv directory${NC}"
+		echo ""
+		echo "What would you like to do?"
+		echo "  1) Stash changes and update (recommended)"
+		echo "  2) Discard changes and update"
+		echo "  3) Cancel update"
+		echo ""
+		read -p "Enter choice [1-3]: " -n 1 -r </dev/tty
+		echo
+		echo ""
+
+		case $REPLY in
+		1)
+			echo -e "${BLUE}Stashing local changes...${NC}"
+			git stash push -m "wokenv self-update $(date +%Y%m%d-%H%M%S)"
+			STASHED=true
+			;;
+		2)
+			echo -e "${BLUE}Discarding local changes...${NC}"
+			git reset --hard HEAD
+			STASHED=false
+			;;
+		3)
+			echo "Update cancelled."
+			exit 0
+			;;
+		*)
+			echo -e "${RED}Invalid choice. Update cancelled.${NC}"
+			exit 1
+			;;
+		esac
+	else
+		STASHED=false
 	fi
 
 	# Show what will be updated
@@ -502,16 +554,33 @@ self_update() {
 	git log --oneline --decorate HEAD..origin/main | head -10
 	echo ""
 
-	read -p "Do you want to update? [Y/n] " -n 1 -r
-	echo
-	if [[ $REPLY =~ ^[Nn]$ ]]; then
-		echo "Update cancelled."
-		exit 0
+	if [ "$STASHED" = false ]; then
+		read -p "Do you want to update? [Y/n] " -n 1 -r </dev/tty
+		echo
+		if [[ $REPLY =~ ^[Nn]$ ]]; then
+			echo "Update cancelled."
+			exit 0
+		fi
 	fi
 
 	# Perform update
 	echo -e "${BLUE}Updating...${NC}"
 	git pull origin main
+
+	# Restore stashed changes if any
+	if [ "$STASHED" = true ]; then
+		echo ""
+		echo -e "${BLUE}Restoring stashed changes...${NC}"
+		if git stash pop; then
+			echo -e "${GREEN}✓ Changes restored successfully${NC}"
+		else
+			echo -e "${YELLOW}⚠️  Could not restore stashed changes automatically${NC}"
+			echo "Your changes are in the stash. To restore manually:"
+			echo "  cd ~/.wokenv"
+			echo "  git stash list"
+			echo "  git stash pop"
+		fi
+	fi
 
 	# Update version
 	NEW_VERSION=$(git describe --tags --always)
@@ -519,7 +588,6 @@ self_update() {
 	# Make scripts executable
 	chmod +x "$WOKENV_DIR/bin/wokenv"
 	chmod +x "$WOKENV_DIR/install.sh"
-	chmod +x "$WOKENV_DIR/lib/parse_yaml.py"
 
 	# Pull latest Docker images
 	echo ""
@@ -562,7 +630,7 @@ check_for_updates() {
 		git fetch origin main --quiet 2>/dev/null || exit 0
 
 		LOCAL=$(git rev-parse @ 2>/dev/null)
-		REMOTE=$(git rev-parse @{u} 2>/dev/null || git rev-parse origin/main 2>/dev/null)
+		REMOTE=$(git rev-parse '@{u}' 2>/dev/null || git rev-parse origin/main 2>/dev/null)
 
 		if [ "$LOCAL" != "$REMOTE" ] 2>/dev/null; then
 			echo -e "${YELLOW}╔════════════════════════════════════════╗${NC}" >&2
@@ -584,7 +652,7 @@ init_project() {
 	# Check if already initialized
 	if [ -f "wokenv.yml" ]; then
 		echo -e "${YELLOW}⚠️  This directory already has wokenv.yml${NC}"
-		read -p "Do you want to continue? [y/N] " -n 1 -r
+		read -p "Do you want to continue? [y/N] " -n 1 -r </dev/tty
 		echo
 		if [[ ! $REPLY =~ ^[Yy]$ ]]; then
 			echo "Initialization cancelled."
@@ -597,7 +665,7 @@ init_project() {
 	echo "  1) Plugin"
 	echo "  2) Theme"
 	echo "  3) WordPress Core"
-	read -p "Enter your choice [1-3]: " project_type
+	read -r -p "Enter your choice [1-3]: " project_type </dev/tty
 	echo ""
 
 	case $project_type in
@@ -622,7 +690,7 @@ init_project() {
 
 	# Ask for project slug
 	default_slug=$(basename "$(pwd)")
-	read -p "Project slug [$default_slug]: " project_slug
+	read -r -p "Project slug [$default_slug]: " project_slug </dev/tty
 	project_slug=${project_slug:-$default_slug}
 	echo ""
 
