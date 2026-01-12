@@ -240,18 +240,23 @@ install_pyyaml() {
     python_version=$(python3 --version | sed 's/Python //')
     echo "Python version: $python_version"
 
-    # Try pip install
-    if command -v pip3 &>/dev/null; then
-        echo "Installing PyYAML via pip..."
-        if pip3 install --user pyyaml; then
-            echo -e "${GREEN}✓ PyYAML installed${NC}"
-            return 0
-        else
-            echo -e "${YELLOW}Failed to install PyYAML via pip${NC}"
-            return 1
-        fi
+    # Try pip or pip3
+    local pip_cmd=""
+    if command -v pip &>/dev/null; then
+        pip_cmd="pip"
+    elif command -v pip3 &>/dev/null; then
+        pip_cmd="pip3"
     else
-        echo -e "${YELLOW}pip3 not found. Skipping PyYAML.${NC}"
+        echo -e "${YELLOW}pip or pip3 not found. Skipping PyYAML.${NC}"
+        return 1
+    fi
+
+    echo "Installing PyYAML via ${pip_cmd}..."
+    if ${pip_cmd} install --user pyyaml; then
+        echo -e "${GREEN}✓ PyYAML installed${NC}"
+        return 0
+    else
+        echo -e "${YELLOW}Failed to install PyYAML via ${pip_cmd}${NC}"
         return 1
     fi
 }

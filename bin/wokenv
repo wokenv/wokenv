@@ -7,7 +7,20 @@ shopt -s inherit_errexit
 # https://github.com/wokenv/wokenv
 
 WOKENV_DIR="${HOME}/.wokenv"
-WOKENV_VERSION="0.1.0"
+
+# Read version from VERSION file
+if [ -f "${WOKENV_DIR}/VERSION" ]; then
+	WOKENV_VERSION=$(cat "${WOKENV_DIR}/VERSION" 2>/dev/null | tr -d '[:space:]')
+	if [ -z "$WOKENV_VERSION" ]; then
+		echo "Error: VERSION file is empty" >&2
+		exit 1
+	fi
+else
+	echo "Error: VERSION file not found at ${WOKENV_DIR}/VERSION" >&2
+	echo "Wokenv installation may be corrupted. Please reinstall:" >&2
+	echo "  curl -fsSL https://raw.githubusercontent.com/wokenv/wokenv/main/install.sh | bash" >&2
+	exit 1
+fi
 
 # Colors
 RED='\033[0;31m'
@@ -281,11 +294,11 @@ self_install_deps() {
 
 	echo "Optional dependencies improve YAML parsing reliability:"
 	echo ""
-	echo "1. ${GREEN}yq${NC} - Fast YAML processor (recommended)"
+	echo -e "1. ${GREEN}yq${NC} - Fast YAML processor (recommended)"
 	echo "   • Best performance and reliability"
 	echo "   • Single binary, easy to install"
 	echo ""
-	echo "2. ${GREEN}PyYAML${NC} - Python YAML library (alternative)"
+	echo -e "2. ${GREEN}PyYAML${NC} - Python YAML library (alternative)"
 	echo "   • Good reliability"
 	echo "   • Requires Python 3"
 	echo ""
@@ -454,18 +467,23 @@ install_pyyaml() {
 	python_version=$(python3 --version | sed 's/Python //')
 	echo "Python version: $python_version"
 
-	# Try pip install
-	if command -v pip3 &>/dev/null; then
-		echo "Installing PyYAML via pip..."
-		if pip3 install --user pyyaml; then
-			echo -e "${GREEN}✓ PyYAML installed${NC}"
-		else
-			echo -e "${RED}Failed to install PyYAML via pip${NC}"
-			return 1
-		fi
+	# Try pip or pip3
+	local pip_cmd=""
+	if command -v pip &>/dev/null; then
+		pip_cmd="pip"
+	elif command -v pip3 &>/dev/null; then
+		pip_cmd="pip3"
 	else
-		echo -e "${RED}pip3 not found.${NC}"
+		echo -e "${RED}pip or pip3 not found.${NC}"
 		echo "Install pip first: https://pip.pypa.io/en/stable/installation/"
+		return 1
+	fi
+
+	echo "Installing PyYAML via ${pip_cmd}..."
+	if ${pip_cmd} install --user pyyaml; then
+		echo -e "${GREEN}✓ PyYAML installed${NC}"
+	else
+		echo -e "${RED}Failed to install PyYAML via ${pip_cmd}${NC}"
 		return 1
 	fi
 }
@@ -816,17 +834,17 @@ init_project() {
 	echo ""
 	echo -e "${GREEN}Next steps:${NC}"
 	echo "  1. Review and customize your configuration files"
-	echo "  2. Run: ${CYAN}wokenv install${NC}     (install npm and composer dependencies - optional)"
-	echo "  3. Run: ${CYAN}wokenv start${NC}       (start WordPress)"
+	echo -e "  2. Run: ${CYAN}wokenv install${NC}     (install npm and composer dependencies - optional)"
+	echo -e "  3. Run: ${CYAN}wokenv start${NC}       (start WordPress)"
 	echo ""
-	echo "Access your site at: ${BLUE}http://localhost:8888${NC}"
-	echo "Admin: ${BLUE}http://localhost:8888/wp-admin${NC} (admin/password)"
+	echo -e "Access your site at: ${BLUE}http://localhost:8888${NC}"
+	echo -e "Admin: ${BLUE}http://localhost:8888/wp-admin${NC} (admin/password)"
 	echo ""
 	echo "Additional services:"
-	echo "  Mailpit (email):  ${BLUE}http://localhost:8025${NC}"
-	echo "  phpMyAdmin (db):  ${BLUE}http://localhost:9000${NC}"
+	echo -e "  Mailpit (email):  ${BLUE}http://localhost:8025${NC}"
+	echo -e "  phpMyAdmin (db):  ${BLUE}http://localhost:9000${NC}"
 	echo ""
-	echo "For help: ${CYAN}wokenv help${NC}"
+	echo -e "For help: ${CYAN}wokenv help${NC}"
 	echo ""
 }
 
