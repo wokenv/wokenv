@@ -85,9 +85,6 @@ ifeq ($(COMPOSE_CMD),)
     $(error Docker Compose not found. Install Docker with Compose V2 or standalone docker-compose)
 endif
 
-# Export for subshells and recursive make calls
-export COMPOSE_CMD
-
 # Docker Compose with centralized config
 DOCKER_COMPOSE := $(COMPOSE_CMD) -f $(WOKENV_DIR)/docker-compose.yml
 
@@ -95,6 +92,10 @@ DOCKER_COMPOSE := $(COMPOSE_CMD) -f $(WOKENV_DIR)/docker-compose.yml
 ifneq (,$(wildcard docker-compose.override.yml))
     DOCKER_COMPOSE += -f docker-compose.override.yml
 endif
+
+# Export for subshells and recursive make calls
+export COMPOSE_CMD
+export DOCKER_COMPOSE
 
 # wp-env container naming patterns
 WP_CONTAINER_PATTERN := $(COMPOSE_PROJECT)-wordpress-1
