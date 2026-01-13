@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3](https://github.com/wokenv/wokenv/compare/v0.2.2...v0.2.3) (2026-01-13)
+
+### Bug Fixes
+
+* wrong docker compose detection in recursive make calls ([06de906](https://github.com/wokenv/wokenv/commit/06de906f317332b48c602f808ead7e9857be01e1))
+
 ## [0.2.2](https://github.com/wokenv/wokenv/compare/v0.2.1...v0.2.2) (2026-01-13)
 
 ### Bug Fixes
