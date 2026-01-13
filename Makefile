@@ -4,6 +4,9 @@
 # Wokenv directory
 WOKENV_DIR := $(HOME)/.wokenv
 
+# Export for subshells and recursive make calls
+export WOKENV_DIR
+
 # Self-reference for recursive calls
 SELF := $(lastword $(MAKEFILE_LIST))
 
@@ -81,6 +84,9 @@ COMPOSE_CMD := $(shell docker compose version &>/dev/null && echo "docker compos
 ifeq ($(COMPOSE_CMD),)
     $(error Docker Compose not found. Install Docker with Compose V2 or standalone docker-compose)
 endif
+
+# Export for subshells and recursive make calls
+export COMPOSE_CMD
 
 # Docker Compose with centralized config
 DOCKER_COMPOSE := $(COMPOSE_CMD) -f $(WOKENV_DIR)/docker-compose.yml
