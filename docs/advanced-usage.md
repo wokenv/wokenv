@@ -571,6 +571,131 @@ Create `wp-content/mu-plugins/custom-config.php`:
 define('MY_CUSTOM_CONSTANT', 'value');
 ```
 
+## Custom Make Targets
+
+Create a `Makefile.local` file to add project-specific automation without modifying Wokenv core files.
+
+### Creating Makefile.local
+
+```bash
+# Copy the example template
+cp Makefile.local.dist Makefile.local
+
+# Or create from scratch
+cat > Makefile.local << 'EOF'
+.PHONY: my-target
+
+my-target:
+ @echo "My custom target"
+EOF
+```
+
+### Available Variables
+
+Your `Makefile.local` has access to all Wokenv variables:
+
+| Variable               | Description                  |
+|------------------------|------------------------------|
+| `DOCKER_COMPOSE`       | Full docker-compose command  |
+| `WOKENV_IMAGE`         | Current Docker image         |
+| `COMPOSE_PROJECT`      | Project name                 |
+| `USER_ID` / `GROUP_ID` | Mapped IDs                   |
+| `WOKENV_MAKEFILE`      | Path to centralized Makefile |
+
+### Override Existing Targets
+
+```makefile
+# Makefile.local
+
+# Override start with custom pre-checks
+start:
+ @echo "Running environment checks..."
+ @docker info > /dev/null || (echo "Docker not running!"; exit 1)
+ @echo "Starting WordPress..."
+ @$(MAKE) -f $(WOKENV_MAKEFILE) start
+ @echo "Post-start tasks..."
+ @$(DOCKER_COMPOSE) exec wokenv npm run env:cli -- wp plugin activate my-plugin
+```
+
+### Call Centralized Targets
+
+Use `$(WOKENV_MAKEFILE)` to call targets from the centralized Makefile:
+
+```makefile
+# Makefile.local
+
+# Build assets before starting
+start:
+ @echo "Building assets..."
+ @npm run build
+ @$(MAKE) -f $(WOKENV_MAKEFILE) start
+
+# Full reset and seed
+reset-and-seed:
+ @$(MAKE) -f $(WOKENV_MAKEFILE) destroy
+ @$(MAKE) -f $(WOKENV_MAKEFILE) start
+ @$(MAKE) seed-data
+```
+
+### Examples
+
+**Database operations:**
+```makefile
+backup-db:
+ @mkdir -p backups
+ @$(DOCKER_COMPOSE) exec wokenv npm run env:cli -- \
+  wp db export backups/backup-$(shell date +%Y%m%d-%H%M%S).sql
+ @echo "✓ Backup created"
+
+restore-latest:
+ @LATEST=$$(ls -t backups/*.sql | head -1); \
+ $(DOCKER_COMPOSE) exec wokenv npm run env:cli -- wp db import $$LATEST
+```
+
+**Development workflow:**
+```makefile
+dev:
+ @npm run watch &
+ @$(MAKE) -f $(WOKENV_MAKEFILE) start
+
+build-prod:
+ @npm run build:prod
+ @$(MAKE) -f $(WOKENV_MAKEFILE) composer-install -- --no-dev
+ @echo "✓ Production build complete"
+```
+
+**Testing:**
+```makefile
+test-ci:
+ @$(MAKE) -f $(WOKENV_MAKEFILE) test -- --coverage-text
+ @$(MAKE) lint
+
+lint:
+ @$(DOCKER_COMPOSE) exec wokenv npm run env:composer -- run-script lint
+```
+
+### Team Workflow
+
+Commit `Makefile.local.dist` with team-wide useful targets:
+
+```makefile
+# Makefile.local.dist
+
+# Seed database with test data
+seed:
+ @$(DOCKER_COMPOSE) exec wokenv npm run env:cli -- wp db reset --yes
+ @$(DOCKER_COMPOSE) exec wokenv npm run env:cli -- wp db import tests/fixtures/seed.sql
+ @echo "✓ Test data loaded"
+
+# Generate translations
+i18n:
+ @$(DOCKER_COMPOSE) exec wokenv npm run env:cli -- \
+  wp i18n make-pot . languages/my-plugin.pot
+```
+
+Team members copy to `Makefile.local` and customize as needed.
+```
+
 ## Working with Git Submodules
 
 ### Add Plugin as Submodule

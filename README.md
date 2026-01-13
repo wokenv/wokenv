@@ -27,6 +27,7 @@ Together: A flexible, powerful workspace where you cook up great WordPress proje
 - **Smart Permission Management** - Automatically maps your host user to container user  
 - **Includes Essential Services** - Mailpit for email testing, phpMyAdmin for database management  
 - **Centralized Configuration** - One docker-compose.yml in `~/.wokenv/` powers all your projects  
+- **Extensible via Makefile.local** - Add custom targets or override existing ones without modifying core files
 - **Version Control Friendly** - Clear separation between committed config and local overrides  
 - **Dynamic Network Connection** - Automatically connects wp-env containers to your custom services  
 - **Updates Seamlessly** - Update Wokenv globally, all projects benefit immediately  
@@ -96,6 +97,8 @@ This will:
    - **Admin**: <http://localhost:8888/wp-admin> (admin/password)
    - **Mailpit (email)**: <http://localhost:8025>
    - **phpMyAdmin (database)**: <http://localhost:9000>
+
+**Tip**: Create a `Makefile.local` file for project-specific custom targets. See `Makefile.local.dist` for examples.
 
 ## Daily Workflow
 

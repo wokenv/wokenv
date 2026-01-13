@@ -160,6 +160,40 @@ networks:
 
 Services will automatically share the network with WordPress containers.
 
+### Makefile.local (Optional, Local Only)
+
+Add custom make targets without modifying the centralized Makefile.
+
+**Purpose:** Project-specific automation and workflow customization.
+
+**Example:**
+```makefile
+# Makefile.local
+backup-db:
+ @$(DOCKER_COMPOSE) exec wokenv npm run env:cli -- wp db export backup-$(shell date +%Y%m%d).sql
+
+deploy:
+ @echo "Deploying..."
+ @rsync -avz . user@server:/var/www/
+```
+
+**Override existing targets:**
+```makefile
+# Custom start with pre-checks
+start:
+ @echo "Running custom pre-start checks..."
+ @$(MAKE) -f $(WOKENV_MAKEFILE) connect-network
+ @$(MAKE) -f $(WOKENV_MAKEFILE) fix-perms
+```
+
+See `Makefile.local.example` for more examples.
+
+**Why Gitignored:**
+- Safe for local experimentation
+- Personal workflow preferences
+- Environment-specific automation
+```
+
 ### package.json
 
 NPM scripts for wp-env operations.
@@ -340,6 +374,9 @@ Available variables in `.env`:
 - `node_modules/`
 - `vendor/`
 - `.wp-env/`
+
+✅ **Optionally commit:**
+- `Makefile.local.dist` - Template for team customizations
 
 ### Recommended .gitignore
 

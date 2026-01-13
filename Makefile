@@ -4,6 +4,13 @@
 # Wokenv directory
 WOKENV_DIR := $(HOME)/.wokenv
 
+# Self-reference for recursive calls
+SELF := $(lastword $(MAKEFILE_LIST))
+
+# Wokenv centralized Makefile (always points to ~/.wokenv/Makefile)
+# Use this in Makefile.local to call centralized targets
+WOKENV_MAKEFILE := $(WOKENV_DIR)/Makefile
+
 # Project detection
 PROJECT_DIR := $(shell pwd)
 PROJECT_SLUG := $(shell basename $(PROJECT_DIR))
@@ -109,10 +116,10 @@ help: ## Show this help message
 
 install: ## Install npm and composer dependencies (optional, see docs)
 	@echo "Installing dependencies..."
-	@$(MAKE) node-install
+	@$(MAKE) -f $(SELF) node-install
 	@if [ -f "composer.json" ] && [ ! -d "vendor" ]; then \
 		echo "Installing composer dependencies..."; \
-		$(MAKE) composer-install; \
+		$(MAKE) -f $(SELF) composer-install; \
 	fi
 
 start: ## Start WordPress environment
@@ -122,8 +129,8 @@ start: ## Start WordPress environment
 	@echo "Starting wp-env..."
 	@$(DOCKER_COMPOSE) exec wokenv npm run env:start
 	@echo "Connecting wp-env containers to shared network..."
-	@$(MAKE) connect-network
-	@$(MAKE) fix-perms
+	@$(MAKE) -f $(SELF) connect-network
+	@$(MAKE) -f $(SELF) fix-perms
 	@echo ""
 	@echo "✓ WordPress started!"
 	@echo ""
@@ -133,7 +140,7 @@ start: ## Start WordPress environment
 	@echo ""
 	@echo "Additional services:"
 	@echo "Mailpit:      http://localhost:$(MAILPIT_WEB_PORT:-8025)"
-	@echo "phpMyAdmin:   http://localhost:$(PHPMYADMIN_PORT:-9000)"
+	@echo "phpMyAdmin:   http://localhost:$(PHPMYADMIN_PORT:-9000) (root/password)"
 	@echo ""
 
 stop: ## Stop WordPress environment
@@ -142,7 +149,9 @@ stop: ## Stop WordPress environment
 	@echo "Stopping Docker Compose services..."
 	@$(DOCKER_COMPOSE) down
 
-restart: stop start ## Restart WordPress environment
+restart: ## Restart WordPress environment
+	@$(MAKE) -f $(SELF) stop
+	@$(MAKE) -f $(SELF) start
 
 destroy: ## Destroy WordPress environment (delete all data)
 	@echo "⚠️  This will permanently delete all WordPress data!"
@@ -283,6 +292,9 @@ info: ## Show environment info
 	@echo "  • make test             - Run tests"
 	@echo ""
 	@echo "═══════════════════════════════════════════════════"
+
+# Include local project customizations if they exist
+-include Makefile.local
 
 # Allow passing arguments to targets
 %:

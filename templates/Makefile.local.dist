@@ -1,0 +1,68 @@
+# Makefile.local - Project-specific customizations
+# 
+# This file is included by the centralized Wokenv Makefile.
+# Add your custom targets or override existing ones here.
+# 
+# This file is gitignored by default, so it's safe for local experimentation.
+
+# ============================================================================
+# OVERRIDING EXISTING TARGETS
+# ============================================================================
+# 
+# You can override any target from the centralized Makefile.
+# To call other centralized targets, use $(WOKENV_MAKEFILE):
+# 
+# Example: Custom start with pre-checks
+# start:
+# 	@echo "Running pre-start checks..."
+# 	@docker --version || (echo "Docker not found!"; exit 1)
+# 	@echo "Starting WordPress with custom logic..."
+# 	@$(MAKE) -f $(WOKENV_MAKEFILE) connect-network
+# 	@$(MAKE) -f $(WOKENV_MAKEFILE) fix-perms
+# 	@echo "Custom start complete!"
+
+# ============================================================================
+# CUSTOM TARGETS
+# ============================================================================
+
+# Example 1: Custom backup target
+# backup-db:
+# 	@echo "Creating database backup..."
+# 	@$(DOCKER_COMPOSE) exec wokenv npm run env:cli -- wp db export backup-$(shell date +%Y%m%d-%H%M%S).sql
+# 	@echo "✓ Backup created: backup-$(shell date +%Y%m%d-%H%M%S).sql"
+
+# Example 2: Override the test target with custom options
+# test:
+# 	@echo "Running tests with coverage..."
+# 	@$(DOCKER_COMPOSE) exec wokenv npm run env:test -- --coverage-html coverage/
+
+# Example 3: Custom deploy target
+# deploy:
+# 	@echo "Deploying to staging..."
+# 	@rsync -avz --exclude node_modules --exclude .git . user@staging:/var/www/html/
+# 	@echo "✓ Deployed to staging"
+
+# Example 4: Custom lint target
+# lint:
+# 	@echo "Running PHP CS Fixer..."
+# 	@$(DOCKER_COMPOSE) exec wokenv npm run env:composer -- run-script lint
+
+# Example 5: Quick database reset and import seed data
+# seed:
+# 	@echo "Resetting database and importing seed data..."
+# 	@$(DOCKER_COMPOSE) exec wokenv npm run env:cli -- wp db reset --yes
+# 	@$(DOCKER_COMPOSE) exec wokenv npm run env:cli -- wp db import seed.sql
+# 	@echo "✓ Seed data imported"
+
+# Example 6: Generate translation files
+# i18n:
+# 	@echo "Generating translation files..."
+# 	@$(DOCKER_COMPOSE) exec wokenv npm run env:cli -- wp i18n make-pot . languages/my-plugin.pot
+# 	@echo "✓ POT file generated"
+
+# Note: All variables from the main Makefile are available:
+# - DOCKER_COMPOSE
+# - WOKENV_IMAGE
+# - COMPOSE_PROJECT
+# - USER_ID / GROUP_ID
+# - etc.

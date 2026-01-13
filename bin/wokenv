@@ -827,6 +827,35 @@ init_project() {
 		;;
 	esac
 
+	# Ask about Makefile
+	echo ""
+	echo -e "${BLUE}Would you like to copy the Makefile to this project?${NC}"
+	echo "This allows you to use 'make' commands instead of 'wokenv'."
+	echo ""
+	echo "Note: You can always use 'wokenv' commands without a local Makefile."
+	echo ""
+	read -r -p "Copy Makefile? [y/N]: " makefile_choice </dev/tty
+	echo ""
+
+	if [[ $makefile_choice =~ ^[Yy]$ ]]; then
+		if [ ! -e "Makefile" ]; then
+			cp "$WOKENV_DIR/Makefile" Makefile
+			echo -e "${GREEN}✓ Copied Makefile to project${NC}"
+			echo -e "${CYAN}ℹ️  You can now use both 'make' and 'wokenv' commands${NC}"
+
+			# Copy Makefile.local.example
+			if [ -f "$WOKENV_DIR/templates/Makefile.local.example" ] && [ ! -e "Makefile.local" ]; then
+				cp "$WOKENV_DIR/templates/Makefile.local.example" .
+				echo -e "${GREEN}✓ Created Makefile.local.example${NC}"
+				echo -e "${CYAN}ℹ️  Customize Makefile.local for project-specific targets${NC}"
+			fi
+		else
+			echo -e "${YELLOW}⚠️  Makefile already exists, skipped${NC}"
+		fi
+	else
+		echo -e "${CYAN}Skipped Makefile creation. Use 'wokenv' commands.${NC}"
+	fi
+
 	# Summary
 	echo ""
 	echo -e "${CYAN}╔════════════════════════════════════════╗${NC}"
