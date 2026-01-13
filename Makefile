@@ -4,9 +4,6 @@
 # Wokenv directory
 WOKENV_DIR := $(HOME)/.wokenv
 
-# Export for subshells and recursive make calls
-export WOKENV_DIR
-
 # Self-reference for recursive calls
 SELF := $(lastword $(MAKEFILE_LIST))
 
@@ -79,7 +76,8 @@ export USER_ID ?= $(shell id -u)
 export GROUP_ID ?= $(shell id -g)
 
 # Detect Docker Compose command (V2 integrated or V1 standalone)
-COMPOSE_CMD := $(shell docker compose version &>/dev/null && echo "docker compose" || command -v docker-compose &>/dev/null && echo "docker-compose" || echo "")
+# Use ?= to allow override from parent make process
+COMPOSE_CMD ?= $(shell docker compose version 2>/dev/null && echo "docker compose" || command -v docker-compose 2>/dev/null && echo "docker-compose" || echo "")
 
 ifeq ($(COMPOSE_CMD),)
     $(error Docker Compose not found. Install Docker with Compose V2 or standalone docker-compose)
@@ -92,10 +90,6 @@ DOCKER_COMPOSE := $(COMPOSE_CMD) -f $(WOKENV_DIR)/docker-compose.yml
 ifneq (,$(wildcard docker-compose.override.yml))
     DOCKER_COMPOSE += -f docker-compose.override.yml
 endif
-
-# Export for subshells and recursive make calls
-export COMPOSE_CMD
-export DOCKER_COMPOSE
 
 # wp-env container naming patterns
 WP_CONTAINER_PATTERN := $(COMPOSE_PROJECT)-wordpress-1
@@ -123,10 +117,10 @@ help: ## Show this help message
 
 install: ## Install npm and composer dependencies (optional, see docs)
 	@echo "Installing dependencies..."
-	@$(MAKE) -f $(SELF) node-install
+	@$(MAKE) -f $(SELF) COMPOSE_CMD="$(COMPOSE_CMD)" WOKENV_DIR="$(WOKENV_DIR)" node-install
 	@if [ -f "composer.json" ] && [ ! -d "vendor" ]; then \
 		echo "Installing composer dependencies..."; \
-		$(MAKE) -f $(SELF) composer-install; \
+		$(MAKE) -f $(SELF) COMPOSE_CMD="$(COMPOSE_CMD)" WOKENV_DIR="$(WOKENV_DIR)" composer-install; \
 	fi
 
 start: ## Start WordPress environment
@@ -157,8 +151,8 @@ stop: ## Stop WordPress environment
 	@$(DOCKER_COMPOSE) down
 
 restart: ## Restart WordPress environment
-	@$(MAKE) -f $(SELF) stop
-	@$(MAKE) -f $(SELF) start
+	@$(MAKE) -f $(SELF) COMPOSE_CMD="$(COMPOSE_CMD)" WOKENV_DIR="$(WOKENV_DIR)" stop
+	@$(MAKE) -f $(SELF) COMPOSE_CMD="$(COMPOSE_CMD)" WOKENV_DIR="$(WOKENV_DIR)" start
 
 destroy: ## Destroy WordPress environment (delete all data)
 	@echo "⚠️  This will permanently delete all WordPress data!"
