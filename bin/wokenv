@@ -608,9 +608,9 @@ self_update() {
 	chmod +x "$WOKENV_DIR/install.sh"
 
 	# Pull latest Docker images
-	echo ""
-	echo -e "${BLUE}Updating Docker images...${NC}"
-	docker pull frugan/wokenv:latest 2>/dev/null || echo -e "${YELLOW}Could not pull default image${NC}"
+	#echo ""
+	#echo -e "${BLUE}Updating Docker images...${NC}"
+	#docker pull frugan/wokenv:latest 2>/dev/null || echo -e "${YELLOW}Could not pull default image${NC}"
 
 	echo ""
 	echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
