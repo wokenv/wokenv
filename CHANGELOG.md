@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.4](https://github.com/wokenv/wokenv/compare/v0.2.3...v0.2.4) (2026-01-14)
+
+### Bug Fixes
+
+* fix docker compose command in Makefile ([89961a8](https://github.com/wokenv/wokenv/commit/89961a88cf928ba5a764c6a2bdaef17fc8678147))
+* keep wokenv container running ([9d6ca83](https://github.com/wokenv/wokenv/commit/9d6ca832222600bf23a901b62012e6a9dfb1a729))
+
 ## [0.2.3](https://github.com/wokenv/wokenv/compare/v0.2.2...v0.2.3) (2026-01-13)
 
 ### Bug Fixes
