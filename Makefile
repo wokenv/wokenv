@@ -1,8 +1,14 @@
 # Wokenv - WordPress Development Environment Makefile
 # https://github.com/wokenv/wokenv
 
+# Use bash for interactive commands (read -n, [[, etc.)
+SHELL := /bin/bash
+
 # Wokenv directory
 WOKENV_DIR := $(HOME)/.wokenv
+
+# Export for subshells and recursive make calls
+export WOKENV_DIR
 
 # Self-reference for recursive calls
 SELF := $(lastword $(MAKEFILE_LIST))
@@ -76,8 +82,7 @@ export USER_ID ?= $(shell id -u)
 export GROUP_ID ?= $(shell id -g)
 
 # Detect Docker Compose command (V2 integrated or V1 standalone)
-# Use ?= to allow override from parent make process
-COMPOSE_CMD ?= $(shell docker compose version 2>/dev/null && echo "docker compose" || command -v docker-compose 2>/dev/null && echo "docker-compose" || echo "")
+COMPOSE_CMD := $(shell docker compose version >/dev/null 2>&1 && echo "docker compose" || echo "docker-compose")
 
 ifeq ($(COMPOSE_CMD),)
     $(error Docker Compose not found. Install Docker with Compose V2 or standalone docker-compose)
@@ -115,17 +120,8 @@ help: ## Show this help message
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-install: ## Install npm and composer dependencies (optional, see docs)
-	@echo "Installing dependencies..."
-	@$(MAKE) -f $(SELF) COMPOSE_CMD="$(COMPOSE_CMD)" WOKENV_DIR="$(WOKENV_DIR)" node-install
-	@if [ -f "composer.json" ] && [ ! -d "vendor" ]; then \
-		echo "Installing composer dependencies..."; \
-		$(MAKE) -f $(SELF) COMPOSE_CMD="$(COMPOSE_CMD)" WOKENV_DIR="$(WOKENV_DIR)" composer-install; \
-	fi
-
 start: ## Start WordPress environment
 	@echo "Starting Docker Compose services..."
-	@mkdir -p $(HOME)/.wp-env
 	@$(DOCKER_COMPOSE) up -d
 	@echo "Starting wp-env..."
 	@$(DOCKER_COMPOSE) exec wokenv npm run env:start
@@ -151,8 +147,8 @@ stop: ## Stop WordPress environment
 	@$(DOCKER_COMPOSE) down
 
 restart: ## Restart WordPress environment
-	@$(MAKE) -f $(SELF) COMPOSE_CMD="$(COMPOSE_CMD)" WOKENV_DIR="$(WOKENV_DIR)" stop
-	@$(MAKE) -f $(SELF) COMPOSE_CMD="$(COMPOSE_CMD)" WOKENV_DIR="$(WOKENV_DIR)" start
+	@$(MAKE) -f $(SELF) stop
+	@$(MAKE) -f $(SELF) start
 
 destroy: ## Destroy WordPress environment (delete all data)
 	@echo "⚠️  This will permanently delete all WordPress data!"
@@ -164,8 +160,13 @@ destroy: ## Destroy WordPress environment (delete all data)
 		echo "✓ Environment destroyed"; \
 	fi
 
-cli: ## Open WP-CLI in WordPress container
-	@$(DOCKER_COMPOSE) exec wokenv npm run env:cli $(filter-out $@,$(MAKECMDGOALS))
+install: ## Install npm and composer dependencies (optional, see docs)
+	@echo "Installing dependencies..."
+	@$(MAKE) -f $(SELF) node-install
+	@if [ -f "composer.json" ] && [ ! -d "vendor" ]; then \
+		echo "Installing composer dependencies..."; \
+		$(MAKE) -f $(SELF) composer-install; \
+	fi
 
 node-install: ## Install npm dependencies
 	@if [ ! -d "node_modules" ]; then \
@@ -181,11 +182,14 @@ composer-install: ## Run composer install
 composer-update: ## Run composer update
 	@$(DOCKER_COMPOSE) exec wokenv npm run env:composer update
 
-test: ## Run PHPUnit tests
-	@$(DOCKER_COMPOSE) exec wokenv npm run env:test
+cli: ## Open WP-CLI in WordPress container
+	@$(DOCKER_COMPOSE) exec wokenv npm run env:cli $(filter-out $@,$(MAKECMDGOALS))
 
 shell: ## Open shell in WordPress container
 	@$(DOCKER_COMPOSE) exec wokenv npm run env:cli bash
+
+test: ## Run PHPUnit tests
+	@$(DOCKER_COMPOSE) exec wokenv npm run env:test
 
 mysql: ## Access MySQL database
 	@echo "Connecting to MySQL..."
@@ -219,10 +223,10 @@ fix-perms: ## Fix WordPress file permissions
 	@WP_CONTAINER=$$(docker ps -q --filter "name=$(WP_CONTAINER_PATTERN)" 2>/dev/null | head -1); \
 	TESTS_CONTAINER=$$(docker ps -q --filter "name=$(TESTS_CONTAINER_PATTERN)" 2>/dev/null | head -1); \
 	if [ -n "$$WP_CONTAINER" ]; then \
-		docker exec $$WP_CONTAINER chown -R 1000:1000 /var/www/html 2>/dev/null || true; \
+		docker exec $$WP_CONTAINER chown -R $(USER_ID):$(GROUP_ID) /var/www/html 2>/dev/null || true; \
 	fi; \
 	if [ -n "$$TESTS_CONTAINER" ]; then \
-		docker exec $$TESTS_CONTAINER chown -R 1000:1000 /var/www/html 2>/dev/null || true; \
+		docker exec $$TESTS_CONTAINER chown -R $(USER_ID):$(GROUP_ID) /var/www/html 2>/dev/null || true; \
 	fi; \
 	echo "✓ Permissions fixed"
 
