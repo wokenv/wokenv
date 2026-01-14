@@ -96,9 +96,15 @@ This will:
    - **WordPress**: <http://localhost:8888>
    - **Admin**: <http://localhost:8888/wp-admin> (admin/password)
    - **Mailpit (email)**: <http://localhost:8025>
-   - **phpMyAdmin (database)**: <http://localhost:9000>
+   - **phpMyAdmin (database)**: <http://localhost:9000> (root/password)
 
 **Tip**: Create a `Makefile.local` file for project-specific custom targets. See `Makefile.local.dist` for examples.
+
+### Docker User Namespace Remapping
+
+⚠️ **Wokenv is NOT compatible with Docker `userns-remap` configurations.**
+
+If you have `userns-remap` enabled in your Docker daemon configuration, you will experience permission issues. See [wokenv/base](https://github.com/wokenv/base) for details.
 
 ## Daily Workflow
 
