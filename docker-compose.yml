@@ -6,6 +6,7 @@ services:
   wokenv:
     image: ${WOKENV_IMAGE:-frugan/wokenv:latest}
     container_name: ${COMPOSE_PROJECT_NAME:-wokenv}-wokenv
+    command: tail -f /dev/null  # Keep container running
     volumes:
       - ${PROJECT_DIR:-.}:${PROJECT_DIR:-.}
       - ${HOME}/.wp-env:/home/node/.wp-env
