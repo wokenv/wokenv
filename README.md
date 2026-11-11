@@ -20,107 +20,98 @@ Together: A flexible, powerful workspace where you cook up great WordPress proje
 
 ## Features
 
-- **Uses Official WordPress Tools** - Built on [@wordpress/env](https://www.npmjs.com/package/@wordpress/env), the official WordPress development environment  
-- **Works Out of the Box** - No Node.js installation needed on your host machine  
-- **Docker-in-Docker Architecture** - Run WordPress containers inside a Docker container for complete isolation  
-- **Handles Permissions Automatically** - No more `sudo chown` or permission headaches  
-- **Smart Permission Management** - Automatically maps your host user to container user  
-- **Includes Essential Services** - Mailpit for email testing, phpMyAdmin for database management  
-- **Centralized Configuration** - One docker-compose.yml in `~/.wokenv/` powers all your projects  
-- **Extensible via Makefile.local** - Add custom targets or override existing ones without modifying core files
-- **Version Control Friendly** - Clear separation between committed config and local overrides  
-- **Dynamic Network Connection** - Automatically connects wp-env containers to your custom services  
-- **Updates Seamlessly** - Update Wokenv globally, all projects benefit immediately  
-- **Version Compatibility** - Projects specify their Wokenv version, old projects keep working  
-- **Zero Configuration Overhead** - Sensible defaults, optional customization only when needed  
-- **Extends Easily** - Add Redis, Elasticsearch, or any service via docker-compose.override.yml  
-- **Perfect for Plugin Development** - Isolated environments for each plugin project  
-- **Perfect for Theme Development** - Test themes in clean WordPress installations  
-- **WordPress Core Development** - Work on WordPress core with proper testing setup  
-- **Multi-Version Testing** - Easily test across different PHP and WordPress versions  
-- **Team Collaboration** - Consistent development environment across all team members  
-- **Integration Testing** - Test your code with other services (Redis, Elasticsearch, etc.)  
-- **Local Development** - Fast, reliable local WordPress development without hassle
+- **wp-env, without Node.js on your machine** - The official [@wordpress/env](https://www.npmjs.com/package/@wordpress/env) runs from a container: Docker is the only requirement
+- **One file in your repository** - `wokenv.yml` is all you commit: no `package.json`, no `.env`, no `node_modules`
+- **Standard configuration** - The `wp-env` section of `wokenv.yml` takes the same keys as `.wp-env.json`
+- **Drop-in for existing projects** - Already have a `.wp-env.json`? Wokenv uses it as it is
+- **Unpatched wp-env** - Wokenv never modifies wp-env, so every wp-env feature and update works as documented
+- **Correct file ownership** - wp-env runs as your user, not as root: no more `sudo chown`
+- **Mailpit built in** - Every email WordPress sends is caught and shown in a web UI
+- **Everything in containers** - WP-CLI, Composer, PHPUnit, Xdebug, phpMyAdmin, `node` and `npm`
+- **Plugins, themes and core** - The project type is detected and mounted for you
+- **Centralized** - Wokenv lives in `~/.wokenv/`: update it once, every project benefits
 
 ## Requirements
 
-- Docker (with Docker daemon running)
-- Git
-- Make (optional, can use `wokenv` command directly)
+- Docker with Compose v2 (Docker Desktop, or Docker Engine with the `docker compose` plugin)
+- Git (only to install and update Wokenv)
+- Linux, macOS or Windows with WSL 2
 
 ## Quick Start
 
 ### Installation
 
-Install Wokenv with a single command:
-
 ```bash
 curl -fsSL https://raw.githubusercontent.com/wokenv/wokenv/main/install.sh | bash
 ```
 
-This will:
-- Clone Wokenv to `~/.wokenv`
-- Install the `wokenv` command
-- Pull the Docker image
+This clones Wokenv to `~/.wokenv`, links the `wokenv` command in `~/.local/bin` and pulls the Docker image.
 
 ### Setting Up a Project
 
-1. **Navigate to your project directory:**
-   ```bash
-   cd /path/to/your-project
-   ```
+```bash
+cd /path/to/your-plugin-or-theme
+wokenv init     # creates wokenv.yml
+wokenv start    # starts WordPress
+```
 
-2. **Initialize with guided setup:**
-   ```bash
-   wokenv init
-   ```
+Then open:
 
-   The wizard will ask you:
-   - What you're developing (plugin/theme/core)
-   - Your project name
-   - Creates all necessary configuration files
+- **WordPress**: <http://localhost:8888>
+- **Admin**: <http://localhost:8888/wp-admin> (admin / password)
+- **Mailpit (email)**: <http://localhost:8025>
+- **phpMyAdmin (database)**: <http://localhost:9000>
 
-3. **Install dependencies (optional):**
-   ```bash
-   wokenv install    # Only if you use npm or composer dependencies
-   ```
+### wokenv.yml
 
-   **Note:** This step is optional. The `env:*` scripts in package.json work without this command since wp-env is pre-installed in the container. Only run `install` if your project uses npm packages or composer dependencies for building assets, testing, etc.
+```yaml
+# What this directory contains: plugin, theme, core or none.
+type: plugin
 
-4. **Start WordPress:**
-   ```bash
-   wokenv start      # Start WordPress + services
-   ```
+# Catch every email WordPress sends: true, false or a custom port.
+mailpit: true
 
-5. **Access your environment:**
-   - **WordPress**: <http://localhost:8888>
-   - **Admin**: <http://localhost:8888/wp-admin> (admin/password)
-   - **Mailpit (email)**: <http://localhost:8025>
-   - **phpMyAdmin (database)**: <http://localhost:9000> (root/password)
+# A standard wp-env configuration, the same keys as .wp-env.json.
+wp-env:
+  phpVersion: "8.3"
+  phpmyadminPort: 9000
+  testsEnvironment: false
+  plugins:
+    - https://downloads.wordpress.org/plugin/query-monitor.zip
+```
 
-**Tip**: Create a `Makefile.local` file for project-specific custom targets. See `Makefile.local.dist` for examples.
-
-### Docker User Namespace Remapping
-
-⚠️ **Wokenv is NOT compatible with Docker `userns-remap` configurations.**
-
-If you have `userns-remap` enabled in your Docker daemon configuration, you will experience permission issues. See [wokenv/base](https://github.com/wokenv/base) for details.
+See [Configuration](docs/configuration.md) for every option.
 
 ## Daily Workflow
 
-The most common commands you'll use:
-
 ```bash
-wokenv start          # Start WordPress + all services
-wokenv stop           # Stop everything
-wokenv restart        # Restart everything
-wokenv cli            # Open WP-CLI
-wokenv shell          # Open bash shell
-wokenv info           # Show environment information
-wokenv help           # Show all commands
+wokenv start              # Start WordPress
+wokenv start --xdebug     # Start with Xdebug enabled
+wokenv stop               # Stop everything
+wokenv wp plugin list     # WP-CLI
+wokenv composer install   # Composer, in your project directory
+wokenv npm run build      # Node.js tooling, without Node.js on the host
+wokenv shell              # Bash in the WordPress CLI container
+wokenv logs               # PHP and Docker logs
+wokenv destroy            # Delete the environment (your files are safe)
+wokenv help               # Show all commands
 ```
 
-See full command reference in [Documentation](docs/README.md).
+See the full command reference in the [Documentation](docs/README.md).
+
+## How It Works
+
+`wokenv` starts a small container with Node.js and wp-env, mounts your project and the Docker socket into it, and runs wp-env there as your own user. wp-env then creates the WordPress containers on your Docker daemon, exactly as it would if it were installed on your machine. See [Architecture](docs/architecture.md).
+
+### Security note
+
+The Wokenv container is given access to the Docker socket, which is equivalent to root access to the Docker host. This is what wp-env needs to manage containers, and the same access wp-env has when it runs directly on your machine. Do not run Wokenv with a `wokenv.yml` or `.wp-env.json` you do not trust: both can run arbitrary commands through wp-env lifecycle scripts.
+
+### Docker User Namespace Remapping
+
+⚠️ **Wokenv is NOT compatible with Docker `userns-remap` or rootless Docker.**
+
+With these configurations the user inside the containers does not map to your user on the host, and you will experience permission issues. See [Troubleshooting](docs/troubleshooting.md).
 
 ## Contributing
 
