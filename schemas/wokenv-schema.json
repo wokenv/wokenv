@@ -2,51 +2,32 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://raw.githubusercontent.com/wokenv/wokenv/main/schemas/wokenv-schema.json",
   "title": "Wokenv Configuration",
-  "description": "Configuration file for Wokenv WordPress development environment",
+  "description": "Configuration file for the Wokenv WordPress development environment",
   "type": "object",
+  "additionalProperties": false,
   "properties": {
-    "image": {
-      "type": "object",
-      "description": "Docker image configuration",
-      "properties": {
-        "node": {
-          "type": "integer",
-          "description": "Node.js version",
-          "enum": [18, 20, 22],
-          "default": 20
-        },
-        "variant": {
-          "type": "string",
-          "description": "Base OS variant",
-          "enum": ["alpine", "bookworm", "trixie"],
-          "default": "alpine"
-        },
-        "wpenv": {
-          "type": "integer",
-          "description": "wp-env major version",
-          "default": 10
-        },
-        "tag": {
-          "type": "string",
-          "description": "Full Docker image tag (overrides node/variant/wpenv)",
-          "pattern": "^[a-z0-9/:.-]+$"
-        }
-      }
-    },
-    "user_id": {
-      "type": "integer",
-      "description": "User ID for file permissions",
-      "minimum": 0
-    },
-    "group_id": {
-      "type": "integer",
-      "description": "Group ID for file permissions",
-      "minimum": 0
-    },
     "type": {
       "type": "string",
-      "description": "Project type (auto-detected if not specified)",
-      "enum": ["plugin", "theme", "core"]
+      "description": "What the project directory contains. Detected automatically when omitted. With plugin, theme or core the project is added to the wp-env configuration; none adds nothing.",
+      "enum": ["plugin", "theme", "core", "none"]
+    },
+    "mailpit": {
+      "description": "Catch the email WordPress sends with Mailpit: true (web UI on port 8025), false, or the port of the web UI.",
+      "oneOf": [
+        { "type": "boolean" },
+        { "type": "integer", "minimum": 1, "maximum": 65535 }
+      ],
+      "default": true
+    },
+    "image": {
+      "type": "string",
+      "description": "Wokenv Docker image to run wp-env with. Must be a top-level, single-line value.",
+      "default": "frugan/wokenv:latest",
+      "examples": ["frugan/wokenv:node22", "frugan/wokenv:node24-wpenv12"]
+    },
+    "wp-env": {
+      "description": "A standard wp-env configuration: the same keys as .wp-env.json. Applied on top of the project's .wp-env.json, when there is one.",
+      "$ref": "https://schemas.wp.org/trunk/wp-env.json"
     }
   }
 }

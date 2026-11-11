@@ -13,7 +13,7 @@ BASH_SHELLCHECK_ARGUMENTS: "-e SC2086 -e SC2046"
 
 # Exclude patterns
 EXCLUDED_DIRECTORIES:
-  - templates
+  - var
   - .github
   - megalinter-reports
   - node_modules
