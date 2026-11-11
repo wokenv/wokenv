@@ -27,8 +27,8 @@ Thank you for your interest in contributing to Wokenv! We welcome contributions 
 Before submitting a PR, please test:
 
 1. **Installation script**: Test the curl installer
-2. **Makefile commands**: Verify all make targets work
-3. **Docker images**: Test both standard and patched variants
+2. **Commands**: Run `tests/e2e.sh` against a real Docker daemon
+3. **Docker images**: Test with the current `frugan/wokenv` image
 4. **Different environments**: Test on Linux and macOS if possible
 
 ### Documentation
