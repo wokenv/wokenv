@@ -1,942 +1,532 @@
-#!/bin/bash
-
-set -euo pipefail
-shopt -s inherit_errexit
+#!/usr/bin/env bash
 
 # Wokenv - WordPress Development Environment
 # https://github.com/wokenv/wokenv
+#
+# Runs the official @wordpress/env (wp-env) from a container, so that the only
+# requirement on the host is Docker. Keep this file compatible with bash 3.2,
+# the version shipped with macOS.
 
-WOKENV_DIR="${HOME}/.wokenv"
+set -euo pipefail
 
-# Read version from VERSION file
-if [ -f "${WOKENV_DIR}/VERSION" ]; then
-	WOKENV_VERSION=$(cat "${WOKENV_DIR}/VERSION" 2>/dev/null | tr -d '[:space:]')
-	if [ -z "$WOKENV_VERSION" ]; then
-		echo "Error: VERSION file is empty" >&2
-		exit 1
-	fi
+readonly DEFAULT_IMAGE="frugan/wokenv:latest"
+readonly INSTALL_URL="https://raw.githubusercontent.com/wokenv/wokenv/main/install.sh"
+
+# ---------------------------------------------------------------------------
+# Output helpers
+# ---------------------------------------------------------------------------
+
+if [ -t 2 ] && [ -z "${NO_COLOR:-}" ]; then
+	RED=$'\033[0;31m' GREEN=$'\033[0;32m' YELLOW=$'\033[1;33m' CYAN=$'\033[0;36m' BOLD=$'\033[1m' NC=$'\033[0m'
 else
-	echo "Error: VERSION file not found at ${WOKENV_DIR}/VERSION" >&2
-	echo "Wokenv installation may be corrupted. Please reinstall:" >&2
-	echo "  curl -fsSL https://raw.githubusercontent.com/wokenv/wokenv/main/install.sh | bash" >&2
-	exit 1
+	RED="" GREEN="" YELLOW="" CYAN="" BOLD="" NC=""
 fi
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[1;34m'
-CYAN='\033[0;36m'
-NC='\033[0m' # No Color
-
-# Check if Wokenv is installed
-check_installation() {
-	if [ ! -d "$WOKENV_DIR" ]; then
-		echo -e "${RED}Error: Wokenv is not installed.${NC}"
-		echo "Install it with:"
-		echo "  curl -fsSL https://raw.githubusercontent.com/wokenv/wokenv/main/install.sh | bash"
-		exit 1
-	fi
+info() { printf '%s\n' "$*" >&2; }
+success() { printf '%s\n' "${GREEN}✓${NC} $*" >&2; }
+warn() { printf '%s\n' "${YELLOW}!${NC} $*" >&2; }
+die() {
+	printf '%s\n' "${RED}Error:${NC} $*" >&2
+	exit 1
 }
 
-# Parse wokenv.yml to get project version
-get_project_version() {
-	if [ ! -f "wokenv.yml" ]; then
-		echo "0.0.0"
-		return
-	fi
+# ---------------------------------------------------------------------------
+# Installation paths
+# ---------------------------------------------------------------------------
 
-	# Simple YAML parsing for version field
-	grep "^version:" wokenv.yml 2>/dev/null | sed 's/version: *["'\'']*\([^"'\'']*\)["'\'']*/\1/' | tr -d ' '
+# Resolves the directory Wokenv is installed in, following the symlink that
+# install.sh creates in ~/.local/bin.
+resolve_install_dir() {
+	local source="${BASH_SOURCE[0]}" dir target
+	while [ -L "$source" ]; do
+		dir=$(cd -P "$(dirname "$source")" && pwd)
+		target=$(readlink "$source")
+		case "$target" in
+		/*) source="$target" ;;
+		*) source="$dir/$target" ;;
+		esac
+	done
+	cd -P "$(dirname "$source")/.." && pwd
 }
 
-# Check project version compatibility
-check_project_version() {
-	local project_version
-	project_version=$(get_project_version)
+WOKENV_DIR="${WOKENV_DIR:-$(resolve_install_dir)}"
+# Everything Wokenv writes on the host lives here, never in the project.
+WOKENV_DATA_DIR="${WOKENV_DATA_DIR:-$WOKENV_DIR/var}"
+WOKENV_VERSION=$(tr -d '[:space:]' <"$WOKENV_DIR/VERSION" 2>/dev/null || true)
+[ -n "$WOKENV_VERSION" ] || die "VERSION file not found in $WOKENV_DIR. Reinstall with: curl -fsSL $INSTALL_URL | bash"
 
-	if [ "$project_version" = "0.0.0" ]; then
-		# No wokenv.yml found, skip version check
-		return
-	fi
+# ---------------------------------------------------------------------------
+# Project
+# ---------------------------------------------------------------------------
 
-	# Simple version comparison (major.minor.patch)
-	local current_major current_minor
-	current_major=$(echo "$WOKENV_VERSION" | cut -d. -f1)
-	current_minor=$(echo "$WOKENV_VERSION" | cut -d. -f2)
+PROJECT_DIR=""
+STATE_DIR=""
+WP_ENV_CONFIG=""
 
-	local project_major project_minor
-	project_major=$(echo "$project_version" | cut -d. -f1)
-	project_minor=$(echo "$project_version" | cut -d. -f2)
-
-	# Check major version mismatch
-	if [ "$current_major" != "$project_major" ]; then
-		echo -e "${YELLOW}╔════════════════════════════════════════╗${NC}"
-		echo -e "${YELLOW}║   Version Mismatch Warning             ║${NC}"
-		echo -e "${YELLOW}╚════════════════════════════════════════╝${NC}"
-		echo ""
-		echo -e "Project uses Wokenv v${project_version}"
-		echo -e "Current Wokenv version: v${WOKENV_VERSION}"
-		echo ""
-		echo -e "${RED}Major version mismatch detected!${NC}"
-		echo "This may cause compatibility issues."
-		echo ""
-		read -p "Continue anyway? [y/N] " -n 1 -r </dev/tty
-		echo
-		if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-			echo "Operation cancelled."
-			exit 1
-		fi
-	# Check minor version mismatch (warning only)
-	elif [ "$current_minor" != "$project_minor" ]; then
-		echo -e "${YELLOW}⚠️  Project uses Wokenv v${project_version}, current version: v${WOKENV_VERSION}${NC}"
-		echo ""
-	fi
-}
-
-# Show help message
-show_help() {
-	echo -e "${CYAN}Wokenv v${WOKENV_VERSION}${NC} - WordPress Development Environment"
-	echo ""
-	echo "Usage: wokenv <command> [options]"
-	echo ""
-	echo "Project Commands:"
-	echo -e "  ${GREEN}init${NC}               Initialize project with guided setup"
-	echo -e "  ${GREEN}install${NC}            Install npm and composer dependencies"
-	echo -e "  ${GREEN}start${NC}              Start WordPress environment"
-	echo -e "  ${GREEN}stop${NC}               Stop WordPress environment"
-	echo -e "  ${GREEN}restart${NC}            Restart WordPress environment"
-	echo -e "  ${GREEN}destroy${NC}            Destroy environment (deletes all data)"
-	echo -e "  ${GREEN}cli${NC}                Open WP-CLI in WordPress container"
-	echo -e "  ${GREEN}shell${NC}              Open bash shell in WordPress container"
-	echo -e "  ${GREEN}node-install${NC}       Install npm dependencies"
-	echo -e "  ${GREEN}composer-install${NC}   Install composer dependencies"
-	echo -e "  ${GREEN}composer-update${NC}    Update composer dependencies"
-	echo -e "  ${GREEN}test${NC}               Run PHPUnit tests"
-	echo -e "  ${GREEN}mysql${NC}              Access MySQL database"
-	echo -e "  ${GREEN}reset-db${NC}           Reset database (WARNING: deletes all data)"
-	echo -e "  ${GREEN}fix-perms${NC}          Fix WordPress file permissions"
-	echo -e "  ${GREEN}clean${NC}              Remove node_modules and vendor"
-	echo -e "  ${GREEN}info${NC}               Show environment information"
-	echo ""
-	echo "Wokenv Management (self-* commands):"
-	echo -e "  ${GREEN}self-update${NC}        Update Wokenv to latest version"
-	echo -e "  ${GREEN}self-install-deps${NC}  Install optional dependencies (yq, PyYAML)"
-	echo -e "  ${GREEN}self-check${NC}         Check Wokenv installation and dependencies"
-	echo -e "  ${GREEN}self-info${NC}          Show Wokenv installation details"
-	echo ""
-	echo "Other:"
-	echo -e "  ${GREEN}help${NC}               Show this help message"
-	echo -e "  ${GREEN}version${NC}            Show Wokenv version"
-	echo ""
-	echo "Examples:"
-	echo "  wokenv init                    # Initialize new project"
-	echo "  wokenv start                   # Start WordPress"
-	echo "  wokenv cli -- wp plugin list   # Run WP-CLI command"
-	echo "  wokenv self-install-deps       # Install yq and PyYAML"
-	echo ""
-	echo "Documentation: https://github.com/wokenv/wokenv"
-}
-
-# Check Wokenv installation and dependencies
-self_check() {
-	echo -e "${CYAN}╔════════════════════════════════════════╗${NC}"
-	echo -e "${CYAN}║   Wokenv Installation Check           ║${NC}"
-	echo -e "${CYAN}╚════════════════════════════════════════╝${NC}"
-	echo ""
-
-	# Check Wokenv directory
-	if [ -d "$WOKENV_DIR" ]; then
-		echo -e "${GREEN}✓ Wokenv directory: $WOKENV_DIR${NC}"
-	else
-		echo -e "${RED}✗ Wokenv directory not found${NC}"
-		return 1
-	fi
-
-	# Check git repository
-	if [ -d "$WOKENV_DIR/.git" ]; then
-		cd "$WOKENV_DIR"
-		local current_version
-		current_version=$(git describe --tags --always 2>/dev/null || echo "unknown")
-		echo -e "${GREEN}✓ Git repository: $current_version${NC}"
-	else
-		echo -e "${YELLOW}⚠ Not a git repository${NC}"
-	fi
-
-	# Check wokenv command
-	if command -v wokenv &>/dev/null; then
-		echo -e "${GREEN}✓ Command 'wokenv' is in PATH${NC}"
-	else
-		echo -e "${YELLOW}⚠ Command 'wokenv' not in PATH${NC}"
-	fi
-
-	echo ""
-	echo "Dependencies:"
-
-	# Check Docker
-	if command -v docker &>/dev/null; then
-		local docker_version
-		docker_version=$(docker --version | sed 's/Docker version //' | cut -d',' -f1)
-		echo -e "${GREEN}✓ Docker: $docker_version${NC}"
-
-		if docker ps &>/dev/null; then
-			echo -e "${GREEN}  Daemon: running${NC}"
-		else
-			echo -e "${RED}  Daemon: not running${NC}"
-		fi
-	else
-		echo -e "${RED}✗ Docker: not installed${NC}"
-	fi
-
-	# Check Docker Compose (V2 integrated or V1 standalone)
-	if docker compose version &>/dev/null; then
-		local compose_version
-		compose_version=$(docker compose version | sed 's/.*version //' | cut -d' ' -f1)
-		echo -e "${GREEN}✓ Docker Compose V2: $compose_version (integrated)${NC}"
-	elif command -v docker-compose &>/dev/null; then
-		local compose_version
-		compose_version=$(docker-compose --version | sed 's/.*version //' | cut -d',' -f1)
-		echo -e "${GREEN}✓ Docker Compose V1: $compose_version (standalone)${NC}"
-	else
-		echo -e "${RED}✗ Docker Compose: not available${NC}"
-	fi
-
-	echo ""
-	echo "Optional Dependencies (for YAML parsing):"
-
-	# Check yq
-	if command -v yq &>/dev/null; then
-		local yq_version
-		yq_version=$(yq --version | sed 's/.*version //' | cut -d' ' -f1)
-		echo -e "${GREEN}✓ yq: $yq_version (best option)${NC}"
-	else
-		echo -e "${YELLOW}○ yq: not installed${NC}"
-	fi
-
-	# Check Python + PyYAML
-	if command -v python3 &>/dev/null; then
-		local python_version
-		python_version=$(python3 --version | sed 's/Python //')
-
-		if python3 -c "import yaml" 2>/dev/null; then
-			local pyyaml_version
-			pyyaml_version=$(python3 -c "import yaml; print(yaml.__version__)" 2>/dev/null || echo "unknown")
-			echo -e "${GREEN}✓ Python: $python_version + PyYAML: $pyyaml_version (good option)${NC}"
-		else
-			echo -e "${YELLOW}○ Python: $python_version (PyYAML not installed)${NC}"
-		fi
-	else
-		echo -e "${YELLOW}○ Python: not installed${NC}"
-	fi
-
-	echo ""
-	echo "Current YAML Parser:"
-
-	# Determine which parser will be used
-	if command -v yq &>/dev/null; then
-		echo -e "${GREEN}  Using: yq (optimal)${NC}"
-	elif command -v python3 &>/dev/null && python3 -c "import yaml" 2>/dev/null; then
-		echo -e "${BLUE}  Using: Python + PyYAML (good)${NC}"
-	else
-		echo -e "${YELLOW}  Using: grep/sed fallback (basic)${NC}"
-		echo ""
-		echo -e "${YELLOW}  ⚠️  Recommended: Install yq or PyYAML for robust parsing${NC}"
-		echo "     Run: wokenv self-install-deps"
-	fi
-
-	echo ""
-}
-
-# Show Wokenv info
-self_info() {
-	echo -e "${CYAN}╔════════════════════════════════════════╗${NC}"
-	echo -e "${CYAN}║   Wokenv Information                   ║${NC}"
-	echo -e "${CYAN}╚════════════════════════════════════════╝${NC}"
-	echo ""
-
-	echo "Version:        $WOKENV_VERSION"
-	echo "Install Path:   $WOKENV_DIR"
-
-	if [ -d "$WOKENV_DIR/.git" ]; then
-		cd "$WOKENV_DIR"
-		local git_version
-		git_version=$(git describe --tags --always 2>/dev/null || echo "unknown")
-		echo "Git Version:    $git_version"
-
-		local git_remote
-		git_remote=$(git remote get-url origin 2>/dev/null || echo "unknown")
-		echo "Repository:     $git_remote"
-
-		local git_branch
-		git_branch=$(git branch --show-current 2>/dev/null || echo "unknown")
-		echo "Branch:         $git_branch"
-	fi
-
-	echo ""
-	echo "Files:"
-	echo "  • docker-compose.yml"
-	echo "  • Makefile"
-	echo "  • bin/wokenv"
-	echo "  • lib/parse_yaml.py"
-	echo "  • templates/plugin/"
-	echo "  • templates/theme/"
-	echo "  • templates/core/"
-	echo ""
-}
-
-# Install optional dependencies
-self_install_deps() {
-	echo -e "${CYAN}╔════════════════════════════════════════╗${NC}"
-	echo -e "${CYAN}║   Install Optional Dependencies       ║${NC}"
-	echo -e "${CYAN}╚════════════════════════════════════════╝${NC}"
-	echo ""
-
-	echo "Optional dependencies improve YAML parsing reliability:"
-	echo ""
-	echo -e "1. ${GREEN}yq${NC} - Fast YAML processor (recommended)"
-	echo "   • Best performance and reliability"
-	echo "   • Single binary, easy to install"
-	echo ""
-	echo -e "2. ${GREEN}PyYAML${NC} - Python YAML library (alternative)"
-	echo "   • Good reliability"
-	echo "   • Requires Python 3"
-	echo ""
-	echo "Without these, Wokenv uses basic grep/sed parsing (works but fragile)."
-	echo ""
-
-	# Check what's already installed
-	local has_yq=false
-	local has_pyyaml=false
-
-	if command -v yq &>/dev/null; then
-		has_yq=true
-		echo -e "${GREEN}✓ yq is already installed${NC}"
-	fi
-
-	if command -v python3 &>/dev/null && python3 -c "import yaml" 2>/dev/null; then
-		has_pyyaml=true
-		echo -e "${GREEN}✓ PyYAML is already installed${NC}"
-	fi
-
-	if [ "$has_yq" = true ] && [ "$has_pyyaml" = true ]; then
-		echo ""
-		echo "You already have both yq and PyYAML installed!"
-		echo "Installation complete."
-		return 0
-	elif [ "$has_yq" = true ]; then
-		echo ""
-		echo "You already have the best option (yq) installed!"
-		read -r -p "Install PyYAML anyway? [y/N] " -n 1 </dev/tty
-		echo
-		if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-			echo "Installation complete."
+# Walks up from the current directory until it finds wokenv.yml.
+find_project_dir() {
+	local dir
+	dir=$(pwd -P)
+	while :; do
+		if [ -f "$dir/wokenv.yml" ]; then
+			printf '%s\n' "$dir"
 			return 0
 		fi
-	elif [ "$has_pyyaml" = true ]; then
-		echo ""
-		echo -e "${GREEN}✓ PyYAML is already installed${NC}"
-		read -r -p "Install yq anyway? [y/N] " -n 1 </dev/tty
-		echo
-		if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-			echo "Installation complete."
-			return 0
-		fi
+		[ "$dir" = "/" ] && return 1
+		dir=$(dirname "$dir")
+	done
+}
+
+# Reads a top-level scalar from wokenv.yml. Only used for "image", which must
+# be known before any container can run; everything else is parsed in the
+# container by lib/wokenv-config.cjs.
+read_top_level_scalar() {
+	sed -n "s/^$1:[[:space:]]*//p" "$PROJECT_DIR/wokenv.yml" | head -n 1 |
+		sed -e 's/[[:space:]]*#.*$//' -e 's/^["'\'']//' -e 's/["'\'']$//' -e 's/[[:space:]]*$//'
+}
+
+require_docker() {
+	command -v docker >/dev/null 2>&1 || die "Docker is not installed. See https://docs.docker.com/get-docker/"
+	docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is required (the 'docker compose' plugin)."
+	docker info >/dev/null 2>&1 || die "Cannot reach the Docker daemon. Is Docker running?"
+}
+
+load_project() {
+	PROJECT_DIR=$(find_project_dir) || die "No wokenv.yml found in this directory or its parents. Run 'wokenv init' first."
+
+	if [ "$(id -u)" = "0" ] && [ -z "${WOKENV_ALLOW_ROOT:-}" ]; then
+		die "Do not run wokenv as root: wp-env maps your user into the containers and Apache refuses to run as root."
 	fi
+	require_docker
 
-	echo ""
-	echo "What would you like to install?"
-	echo "  1) yq only (recommended)"
-	echo "  2) PyYAML only"
-	echo "  3) Both"
-	echo "  4) Cancel"
-	read -r -p "Enter choice [1-4]: " choice </dev/tty
-	echo ""
+	local slug
+	slug=$(basename "$PROJECT_DIR" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9]/-/g' -e 's/--*/-/g' -e 's/^-//' -e 's/-$//')
+	[ -n "$slug" ] || slug="project"
+	# The checksum keeps two projects with the same directory name apart.
+	PROJECT_ID="${slug}-$(printf '%s' "$PROJECT_DIR" | cksum | cut -d ' ' -f 1)"
+	STATE_DIR="$WOKENV_DATA_DIR/projects/$PROJECT_ID"
+	WP_ENV_CONFIG="$STATE_DIR/.wp-env.json"
 
-	case $choice in
-	1)
-		install_yq
-		;;
-	2)
-		install_pyyaml
-		;;
-	3)
-		install_yq
-		install_pyyaml
-		;;
-	4)
-		echo "Installation cancelled."
+	local image
+	image="${WOKENV_IMAGE:-$(read_top_level_scalar image)}"
+
+	export WOKENV_DIR
+	export WOKENV_IMAGE="${image:-$DEFAULT_IMAGE}"
+	export WOKENV_PROJECT_DIR="$PROJECT_DIR"
+	export WOKENV_STATE_DIR="$STATE_DIR"
+	export WOKENV_HOME_DIR="$WOKENV_DATA_DIR/home"
+	export WOKENV_CWD
+	WOKENV_CWD=$(pwd -P)
+	export WOKENV_UID="${WOKENV_UID:-$(id -u)}"
+	export WOKENV_GID="${WOKENV_GID:-$(id -g)}"
+	export WOKENV_DOCKER_SOCKET="${WOKENV_DOCKER_SOCKET:-/var/run/docker.sock}"
+
+	# Created here so that they belong to the user and not to root, which is
+	# what the Docker daemon would do for a missing bind mount source.
+	mkdir -p "$STATE_DIR/wp-env" "$WOKENV_HOME_DIR"
+
+	sync_config
+}
+
+# Checksum of everything the generated configuration depends on.
+config_checksum() {
+	{
+		printf '%s\n' "$WOKENV_VERSION" "$WOKENV_IMAGE" "$PROJECT_DIR" "$WOKENV_DIR"
+		cat "$PROJECT_DIR/wokenv.yml"
+		cat "$PROJECT_DIR/.wp-env.json" "$PROJECT_DIR/.wp-env.override.json" 2>/dev/null || true
+	} | cksum
+}
+
+# Regenerates the wp-env configuration when wokenv.yml changed.
+sync_config() {
+	local checksum
+	checksum=$(config_checksum)
+	if [ -f "$WP_ENV_CONFIG" ] && [ -f "$STATE_DIR/project.env" ] && [ -f "$STATE_DIR/compose.override.json" ] &&
+		[ "$(cat "$STATE_DIR/checksum" 2>/dev/null || true)" = "$checksum" ]; then
 		return 0
-		;;
-	*)
-		echo -e "${RED}Invalid choice.${NC}"
-		return 1
-		;;
-	esac
+	fi
 
-	echo ""
-	echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
-	echo -e "${GREEN}║   Installation Complete!               ║${NC}"
-	echo -e "${GREEN}╚════════════════════════════════════════╝${NC}"
-	echo ""
-	echo "Run 'wokenv self-check' to verify installation."
+	ensure_image
+	docker run --rm \
+		--user "$WOKENV_UID:$WOKENV_GID" \
+		--network none \
+		--entrypoint node \
+		--volume "$PROJECT_DIR:$PROJECT_DIR:ro" \
+		--volume "$STATE_DIR:$STATE_DIR" \
+		--volume "$WOKENV_DIR/lib:$WOKENV_DIR/lib:ro" \
+		"$WOKENV_IMAGE" \
+		"$WOKENV_DIR/lib/wokenv-config.cjs" \
+		--project "$PROJECT_DIR" --state "$STATE_DIR" --lib "$WOKENV_DIR/lib" --home "$HOME" ||
+		die "Could not generate the wp-env configuration from wokenv.yml."
+	printf '%s\n' "$checksum" >"$STATE_DIR/checksum"
 }
 
-# Install yq
-install_yq() {
-	echo -e "${BLUE}Installing yq...${NC}"
+# Reads a value written by lib/wokenv-config.cjs. The file is parsed, never
+# sourced: it is derived from a wokenv.yml that may come from someone else.
+project_value() {
+	sed -n "s/^$1=//p" "$STATE_DIR/project.env" | head -n 1
+}
 
-	if [[ "$OSTYPE" == "darwin"* ]]; then
-		# macOS
-		if command -v brew &>/dev/null; then
-			echo "Using Homebrew..."
-			brew install yq
-			echo -e "${GREEN}✓ yq installed via Homebrew${NC}"
-		else
-			echo -e "${YELLOW}Homebrew not found.${NC}"
-			echo "Install manually from: https://github.com/mikefarah/yq#install"
-			return 1
-		fi
-	elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-		# Linux - install binary directly
-		local YQ_VERSION="v4.40.5"
-		local ARCH
-		ARCH=$(uname -m)
-		local YQ_BINARY
+ensure_image() {
+	docker image inspect "$WOKENV_IMAGE" >/dev/null 2>&1 && return 0
+	info "Pulling $WOKENV_IMAGE..."
+	docker pull "$WOKENV_IMAGE" >&2 || die "Could not pull $WOKENV_IMAGE."
+}
 
-		case $ARCH in
-		x86_64)
-			YQ_BINARY="yq_linux_amd64"
-			;;
-		aarch64 | arm64)
-			YQ_BINARY="yq_linux_arm64"
-			;;
-		*)
-			echo -e "${RED}Unsupported architecture: $ARCH${NC}"
-			echo "Install manually from: https://github.com/mikefarah/yq#install"
-			return 1
-			;;
+# ---------------------------------------------------------------------------
+# Docker plumbing
+# ---------------------------------------------------------------------------
+
+compose() {
+	docker compose \
+		--progress quiet \
+		--project-name "wokenv-$PROJECT_ID" \
+		--project-directory "$PROJECT_DIR" \
+		--file "$WOKENV_DIR/docker-compose.yml" \
+		--file "$STATE_DIR/compose.override.json" \
+		"$@"
+}
+
+# Runs a command in the Wokenv container, as the host user.
+toolbox() {
+	local tty=()
+	# Without a terminal (CI, pipes) docker must not try to allocate one.
+	if [ ! -t 0 ] || [ ! -t 1 ]; then
+		tty=(--no-TTY)
+	fi
+	compose run --rm --quiet-pull ${tty[@]+"${tty[@]}"} wokenv "$@"
+}
+
+wp_env() {
+	toolbox wp-env --config "$WP_ENV_CONFIG" "$@"
+}
+
+# Name of the Docker Compose project wp-env created for this project, if any.
+wp_env_compose_project() {
+	local workdir
+	for workdir in "$STATE_DIR"/wp-env/*/; do
+		[ -f "${workdir}docker-compose.yml" ] || continue
+		docker ps --all \
+			--filter "label=com.docker.compose.project.working_dir=${workdir%/}" \
+			--format '{{.Label "com.docker.compose.project"}}' | head -n 1
+		return 0
+	done
+}
+
+mailpit_enabled() {
+	[ "$(project_value MAILPIT_PORT)" != "0" ]
+}
+
+# wp-env owns its Compose project, so Mailpit joins that network from the
+# outside, under the "mailpit" name the must-use plugin connects to.
+mailpit_connect() {
+	mailpit_enabled || return 0
+	compose up --detach --quiet-pull mailpit >&2
+
+	local project container
+	project=$(wp_env_compose_project)
+	container=$(compose ps --quiet mailpit)
+	if [ -z "$project" ] || [ -z "$container" ]; then
+		warn "Mailpit is running, but the wp-env network was not found: WordPress cannot reach it."
+		return 0
+	fi
+	if ! docker network inspect "${project}_default" --format '{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null |
+		grep -q "$(docker inspect --format '{{.Name}}' "$container" | sed 's|^/||')"; then
+		docker network connect --alias mailpit "${project}_default" "$container" ||
+			warn "Could not connect Mailpit to the wp-env network: WordPress cannot reach it."
+	fi
+}
+
+# Must run before wp-env removes its network: a network with a container
+# still attached cannot be removed.
+mailpit_disconnect() {
+	local project container
+	project=$(wp_env_compose_project)
+	container=$(compose ps --all --quiet mailpit 2>/dev/null || true)
+	if [ -n "$project" ] && [ -n "$container" ]; then
+		docker network disconnect --force "${project}_default" "$container" >/dev/null 2>&1 || true
+	fi
+}
+
+confirm() {
+	local reply
+	[ -n "${WOKENV_YES:-}" ] && return 0
+	[ -t 0 ] || die "Refusing to continue without confirmation. Pass --yes to skip the prompt."
+	printf '%s [y/N] ' "$1" >&2
+	read -r reply
+	case "$reply" in
+	y | Y | yes | YES) return 0 ;;
+	*) return 1 ;;
+	esac
+}
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
+
+cmd_init() {
+	local type="" force="" dir
+	while [ $# -gt 0 ]; do
+		case "$1" in
+		--type) type="${2:-}" && shift ;;
+		--type=*) type="${1#--type=}" ;;
+		--force) force=1 ;;
+		*) die "Unknown option for init: $1" ;;
 		esac
+		shift
+	done
+	dir=$(pwd -P)
 
-		echo "Downloading yq ${YQ_VERSION} for ${ARCH}..."
-
-		if ! wget -q "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/${YQ_BINARY}" -O /tmp/yq; then
-			echo -e "${RED}Failed to download yq${NC}"
-			return 1
-		fi
-
-		chmod +x /tmp/yq
-
-		# Try ~/.local/bin first
-		if mkdir -p "$HOME/.local/bin" 2>/dev/null && mv /tmp/yq "$HOME/.local/bin/yq"; then
-			echo -e "${GREEN}✓ yq installed to ~/.local/bin/yq${NC}"
-
-			# Check if in PATH
-			if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
-				echo -e "${YELLOW}⚠️  Add ~/.local/bin to your PATH:${NC}"
-				echo "   echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc"
-				echo "   source ~/.bashrc"
-			fi
-		# Try /usr/local/bin with sudo
-		elif sudo -n true 2>/dev/null && sudo mv /tmp/yq /usr/local/bin/yq; then
-			echo -e "${GREEN}✓ yq installed to /usr/local/bin/yq${NC}"
+	if [ -f "$dir/wokenv.yml" ] && [ -z "$force" ]; then
+		die "wokenv.yml already exists. Use --force to overwrite it."
+	fi
+	if [ -z "$type" ]; then
+		if [ -f "$dir/wp-settings.php" ]; then
+			type="core"
+		elif grep -qi '^[[:space:]/*#@]*Theme Name:' "$dir/style.css" 2>/dev/null; then
+			type="theme"
+		elif grep -qil '^[[:space:]/*#@]*Plugin Name:' "$dir"/*.php 2>/dev/null; then
+			type="plugin"
 		else
-			echo -e "${YELLOW}Could not move yq to PATH.${NC}"
-			echo "Please manually move /tmp/yq to a directory in your PATH"
-			return 1
-		fi
-	else
-		echo -e "${RED}Unsupported OS: $OSTYPE${NC}"
-		echo "Install manually from: https://github.com/mikefarah/yq#install"
-		return 1
-	fi
-}
-
-# Install PyYAML
-install_pyyaml() {
-	echo -e "${BLUE}Installing PyYAML...${NC}"
-
-	# Check Python
-	if ! command -v python3 &>/dev/null; then
-		echo -e "${RED}Python 3 is not installed.${NC}"
-		echo "Install Python first, then run this command again."
-		return 1
-	fi
-
-	local python_version
-	python_version=$(python3 --version | sed 's/Python //')
-	echo "Python version: $python_version"
-
-	# Try pip or pip3
-	local pip_cmd=""
-	if command -v pip &>/dev/null; then
-		pip_cmd="pip"
-	elif command -v pip3 &>/dev/null; then
-		pip_cmd="pip3"
-	else
-		echo -e "${RED}pip or pip3 not found.${NC}"
-		echo "Install pip first: https://pip.pypa.io/en/stable/installation/"
-		return 1
-	fi
-
-	echo "Installing PyYAML via ${pip_cmd}..."
-	if ${pip_cmd} install --user pyyaml; then
-		echo -e "${GREEN}✓ PyYAML installed${NC}"
-	else
-		echo -e "${RED}Failed to install PyYAML via ${pip_cmd}${NC}"
-		return 1
-	fi
-}
-
-# Update Wokenv to latest version
-self_update() {
-	echo -e "${CYAN}╔════════════════════════════════════════╗${NC}"
-	echo -e "${CYAN}║   Updating Wokenv                      ║${NC}"
-	echo -e "${CYAN}╚════════════════════════════════════════╝${NC}"
-	echo ""
-
-	# Check if git is available
-	if ! command -v git &>/dev/null; then
-		echo -e "${RED}Error: git is not installed.${NC}"
-		exit 1
-	fi
-
-	# Check if we're in a git repository
-	if [ ! -d "$WOKENV_DIR/.git" ]; then
-		echo -e "${RED}Error: $WOKENV_DIR is not a git repository.${NC}"
-		echo "Please reinstall Wokenv:"
-		echo "  curl -fsSL https://raw.githubusercontent.com/wokenv/wokenv/main/install.sh | bash"
-		exit 1
-	fi
-
-	echo "Current location: $WOKENV_DIR"
-
-	# Store current version
-	cd "$WOKENV_DIR"
-	CURRENT_VERSION=$(git describe --tags --always 2>/dev/null || echo "unknown")
-
-	# Fetch latest changes
-	echo -e "${BLUE}Fetching latest changes...${NC}"
-	git fetch origin main --tags
-
-	# Check if there are updates
-	LOCAL=$(git rev-parse @)
-	REMOTE=$(git rev-parse '@{u}' 2>/dev/null || git rev-parse origin/main)
-
-	if [ "$LOCAL" = "$REMOTE" ]; then
-		echo -e "${GREEN}✓ Wokenv is already up to date (${CURRENT_VERSION})${NC}"
-		exit 0
-	fi
-
-	# Check for local changes
-	if ! git diff-index --quiet HEAD -- 2>/dev/null; then
-		echo ""
-		echo -e "${YELLOW}⚠️  You have local changes in Wokenv directory${NC}"
-		echo ""
-		echo "What would you like to do?"
-		echo "  1) Stash changes and update (recommended)"
-		echo "  2) Discard changes and update"
-		echo "  3) Cancel update"
-		echo ""
-		read -p "Enter choice [1-3]: " -n 1 -r </dev/tty
-		echo
-		echo ""
-
-		case $REPLY in
-		1)
-			echo -e "${BLUE}Stashing local changes...${NC}"
-			git stash push -m "wokenv self-update $(date +%Y%m%d-%H%M%S)"
-			STASHED=true
-			;;
-		2)
-			echo -e "${BLUE}Discarding local changes...${NC}"
-			git reset --hard HEAD
-			STASHED=false
-			;;
-		3)
-			echo "Update cancelled."
-			exit 0
-			;;
-		*)
-			echo -e "${RED}Invalid choice. Update cancelled.${NC}"
-			exit 1
-			;;
-		esac
-	else
-		STASHED=false
-	fi
-
-	# Show what will be updated
-	echo ""
-	echo -e "${YELLOW}Changes to be applied:${NC}"
-	git log --oneline --decorate HEAD..origin/main | head -10
-	echo ""
-
-	if [ "$STASHED" = false ]; then
-		read -p "Do you want to update? [Y/n] " -n 1 -r </dev/tty
-		echo
-		if [[ $REPLY =~ ^[Nn]$ ]]; then
-			echo "Update cancelled."
-			exit 0
+			type="none"
+			warn "Could not detect a plugin, a theme or WordPress core here: using type 'none'."
 		fi
 	fi
-
-	# Perform update
-	echo -e "${BLUE}Updating...${NC}"
-	git pull origin main
-
-	# Restore stashed changes if any
-	if [ "$STASHED" = true ]; then
-		echo ""
-		echo -e "${BLUE}Restoring stashed changes...${NC}"
-		if git stash pop; then
-			echo -e "${GREEN}✓ Changes restored successfully${NC}"
-		else
-			echo -e "${YELLOW}⚠️  Could not restore stashed changes automatically${NC}"
-			echo "Your changes are in the stash. To restore manually:"
-			echo "  cd ~/.wokenv"
-			echo "  git stash list"
-			echo "  git stash pop"
-		fi
-	fi
-
-	# Update version
-	NEW_VERSION=$(git describe --tags --always)
-
-	# Make scripts executable
-	chmod +x "$WOKENV_DIR/bin/wokenv"
-	chmod +x "$WOKENV_DIR/install.sh"
-
-	# Pull latest Docker images
-	#echo ""
-	#echo -e "${BLUE}Updating Docker images...${NC}"
-	#docker pull frugan/wokenv:latest 2>/dev/null || echo -e "${YELLOW}Could not pull default image${NC}"
-
-	echo ""
-	echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
-	echo -e "${GREEN}║   Update Complete!                     ║${NC}"
-	echo -e "${GREEN}╚════════════════════════════════════════╝${NC}"
-	echo ""
-	echo "Updated from ${CURRENT_VERSION} to ${NEW_VERSION}"
-	echo ""
-	echo "Changelog: https://github.com/wokenv/wokenv/blob/main/CHANGELOG.md"
-	echo ""
-}
-
-# Check for updates (non-blocking)
-check_for_updates() {
-	# Only check once per day
-	UPDATE_CHECK_FILE="$HOME/.wokenv/.last_update_check"
-
-	if [ -f "$UPDATE_CHECK_FILE" ]; then
-		LAST_CHECK=$(cat "$UPDATE_CHECK_FILE" 2>/dev/null || echo 0)
-		CURRENT_TIME=$(date +%s)
-		TIME_DIFF=$((CURRENT_TIME - LAST_CHECK))
-
-		# Check if less than 24 hours (86400 seconds)
-		if [ $TIME_DIFF -lt 86400 ]; then
-			return
-		fi
-	fi
-
-	# Update check timestamp
-	date +%s >"$UPDATE_CHECK_FILE" 2>/dev/null || true
-
-	# Check for updates in background
-	(
-		cd "$WOKENV_DIR" 2>/dev/null || exit 0
-		git fetch origin main --quiet 2>/dev/null || exit 0
-
-		LOCAL=$(git rev-parse @ 2>/dev/null)
-		REMOTE=$(git rev-parse '@{u}' 2>/dev/null || git rev-parse origin/main 2>/dev/null)
-
-		if [ "$LOCAL" != "$REMOTE" ] 2>/dev/null; then
-			echo -e "${YELLOW}╔════════════════════════════════════════╗${NC}" >&2
-			echo -e "${YELLOW}║ A new version of Wokenv is available! ║${NC}" >&2
-			echo -e "${YELLOW}╚════════════════════════════════════════╝${NC}" >&2
-			echo -e "Run: ${CYAN}wokenv self-update${NC} to upgrade" >&2
-			echo "" >&2
-		fi
-	) &
-}
-
-# Initialize project with guided setup
-init_project() {
-	echo -e "${CYAN}╔════════════════════════════════════════╗${NC}"
-	echo -e "${CYAN}║   Wokenv Project Initialization        ║${NC}"
-	echo -e "${CYAN}╚════════════════════════════════════════╝${NC}"
-	echo ""
-
-	# Check if already initialized
-	if [ -f "wokenv.yml" ]; then
-		echo -e "${YELLOW}⚠️  This directory already has wokenv.yml${NC}"
-		read -p "Do you want to continue? [y/N] " -n 1 -r </dev/tty
-		echo
-		if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-			echo "Initialization cancelled."
-			exit 0
-		fi
-	fi
-
-	# Ask project type
-	echo -e "${BLUE}What are you developing?${NC}"
-	echo "  1) Plugin"
-	echo "  2) Theme"
-	echo "  3) WordPress Core"
-	read -r -p "Enter your choice [1-3]: " project_type </dev/tty
-	echo ""
-
-	case $project_type in
-	1)
-		project_name="plugin"
-		TEMPLATE_DIR="$WOKENV_DIR/templates/plugin"
-		;;
-	2)
-		project_name="theme"
-		TEMPLATE_DIR="$WOKENV_DIR/templates/theme"
-		;;
-	3)
-		project_name="core"
-		TEMPLATE_DIR="$WOKENV_DIR/templates/core"
-		;;
-	*)
-		echo -e "${RED}Invalid choice. Defaulting to plugin.${NC}"
-		project_name="plugin"
-		TEMPLATE_DIR="$WOKENV_DIR/templates/plugin"
-		;;
+	case "$type" in
+	plugin | theme | core | none) ;;
+	*) die "Invalid type '$type'. Use plugin, theme, core or none." ;;
 	esac
 
-	# Ask for project slug
-	default_slug=$(basename "$(pwd)")
-	read -r -p "Project slug [$default_slug]: " project_slug </dev/tty
-	project_slug=${project_slug:-$default_slug}
-	echo ""
+	{
+		cat <<YAML
+# yaml-language-server: \$schema=https://raw.githubusercontent.com/wokenv/wokenv/main/schemas/wokenv-schema.json
 
-	# Copy configuration files
-	echo -e "${BLUE}Setting up configuration files...${NC}"
-	echo ""
+# Wokenv configuration: the only file your project needs to commit.
+# https://github.com/wokenv/wokenv/blob/main/docs/configuration.md
 
-	# wokenv.yml
-	if [ -f "$TEMPLATE_DIR/wokenv.yml" ]; then
-		cp "$TEMPLATE_DIR/wokenv.yml" .
-		sed -i.bak "s/__WOKENV_VERSION__/$WOKENV_VERSION/" wokenv.yml
-		sed -i.bak "s/my-$project_name/$project_slug/" wokenv.yml
-		sed -i.bak "s/type: $project_name/type: $project_name/" wokenv.yml
-		rm -f wokenv.yml.bak
-		echo -e "${GREEN}✓ Created wokenv.yml${NC}"
-	fi
+# What this directory contains: plugin, theme, core or none.
+type: $type
 
-	# .env from .env.dist
-	if [ ! -f ".env" ] && [ -f "$TEMPLATE_DIR/.env.dist" ]; then
-		cp "$TEMPLATE_DIR/.env.dist" .env
-		sed -i.bak "s/COMPOSE_PROJECT_NAME=.*/COMPOSE_PROJECT_NAME=$project_slug/" .env
-		sed -i.bak "s/USER_ID=.*/USER_ID=$(id -u)/" .env
-		sed -i.bak "s/GROUP_ID=.*/GROUP_ID=$(id -g)/" .env
-		rm -f .env.bak
-		echo -e "${GREEN}✓ Created .env${NC}"
-	fi
+# Catch every email WordPress sends: true, false or a custom port.
+mailpit: true
 
-	# .env.dist (always copy for versioning)
-	if [ -f "$TEMPLATE_DIR/.env.dist" ]; then
-		cp "$TEMPLATE_DIR/.env.dist" .
-		sed -i.bak "s/COMPOSE_PROJECT_NAME=.*/COMPOSE_PROJECT_NAME=$project_slug/" .env.dist
-		rm -f .env.dist.bak
-		echo -e "${GREEN}✓ Created .env.dist${NC}"
-	fi
-
-	# docker-compose.override.yml.dist
-	if [ -f "$TEMPLATE_DIR/docker-compose.override.yml.dist" ]; then
-		cp "$TEMPLATE_DIR/docker-compose.override.yml.dist" .
-		echo -e "${GREEN}✓ Created docker-compose.override.yml.dist${NC}"
-	fi
-
-	# .wp-env.json
-	if [ ! -f ".wp-env.json" ]; then
-		cp "$WOKENV_DIR/templates/.wp-env.json" .
-
-		# Customize .wp-env.json based on project type
-		if [ "$project_name" = "theme" ]; then
-			# Replace plugins with themes in .wp-env.json
-			sed -i.bak 's/"plugins"/"themes"/' .wp-env.json
-			rm -f .wp-env.json.bak
-		fi
-
-		echo -e "${GREEN}✓ Created .wp-env.json${NC}"
-	fi
-
-	# package.json
-	if [ ! -f "package.json" ]; then
-		cp "$TEMPLATE_DIR/package.json" .
-		sed -i.bak "s/my-$project_name/$project_slug/" package.json
-		rm -f package.json.bak
-		echo -e "${GREEN}✓ Created package.json${NC}"
-	fi
-
-	# composer.json (skip for core)
-	if [ "$project_name" != "core" ] && [ ! -f "composer.json" ]; then
-		cp "$TEMPLATE_DIR/composer.json" .
-		sed -i.bak "s/my-vendor\/my-$project_name/my-vendor\/$project_slug/" composer.json
-		rm -f composer.json.bak
-		echo -e "${GREEN}✓ Created composer.json${NC}"
-	fi
-
-	# wp-cli.yml
-	if [ ! -f "wp-cli.yml" ]; then
-		cp "$WOKENV_DIR/templates/wp-cli.yml" .
-		echo -e "${GREEN}✓ Created wp-cli.yml${NC}"
-	fi
-
-	# .gitignore
-	if [ ! -f ".gitignore" ]; then
-		cp "$WOKENV_DIR/templates/.gitignore" .
-		echo -e "${GREEN}✓ Created .gitignore${NC}"
-	fi
-
-	# Create starter files based on project type
-	echo ""
-	echo -e "${BLUE}Creating starter files...${NC}"
-
-	case $project_name in
-	plugin)
-		if [ ! -f "${project_slug}.php" ]; then
-			cp "$WOKENV_DIR/templates/plugin/my-plugin.php" "${project_slug}.php"
-			# Update plugin slug in file
-			sed -i.bak "s/my-plugin/$project_slug/g" "${project_slug}.php"
-			sed -i.bak "s/My WordPress Plugin/${project_slug}/g" "${project_slug}.php"
-			rm -f "${project_slug}.php.bak"
-			echo -e "${GREEN}✓ Created ${project_slug}.php${NC}"
-		fi
-		;;
-	theme)
-		if [ ! -f "style.css" ]; then
-			cp "$WOKENV_DIR/templates/theme/style.css" .
-			sed -i.bak "s/my-theme/$project_slug/g" style.css
-			rm -f style.css.bak
-			echo -e "${GREEN}✓ Created style.css${NC}"
-		fi
-		if [ ! -f "functions.php" ]; then
-			cp "$WOKENV_DIR/templates/theme/functions.php" .
-			sed -i.bak "s/my-theme/$project_slug/g" functions.php
-			sed -i.bak "s/my_theme/${project_slug//-/_}/g" functions.php
-			rm -f functions.php.bak
-			echo -e "${GREEN}✓ Created functions.php${NC}"
-		fi
-		;;
-	core)
-		echo -e "${CYAN}ℹ️  Core development mode - no starter files needed${NC}"
-		;;
-	esac
-
-	# Ask about Makefile
-	echo ""
-	echo -e "${BLUE}Would you like to copy the Makefile to this project?${NC}"
-	echo "This allows you to use 'make' commands instead of 'wokenv'."
-	echo ""
-	echo "Note: You can always use 'wokenv' commands without a local Makefile."
-	echo ""
-	read -r -p "Copy Makefile? [y/N]: " makefile_choice </dev/tty
-	echo ""
-
-	if [[ $makefile_choice =~ ^[Yy]$ ]]; then
-		if [ ! -e "Makefile" ]; then
-			cp "$WOKENV_DIR/Makefile" Makefile
-			echo -e "${GREEN}✓ Copied Makefile to project${NC}"
-			echo -e "${CYAN}ℹ️  You can now use both 'make' and 'wokenv' commands${NC}"
-
-			# Copy Makefile.local.example
-			if [ -f "$WOKENV_DIR/templates/Makefile.local.example" ] && [ ! -e "Makefile.local" ]; then
-				cp "$WOKENV_DIR/templates/Makefile.local.example" .
-				echo -e "${GREEN}✓ Created Makefile.local.example${NC}"
-				echo -e "${CYAN}ℹ️  Customize Makefile.local for project-specific targets${NC}"
-			fi
+YAML
+		if [ -f "$dir/.wp-env.json" ]; then
+			cat <<'YAML'
+# This project already has a .wp-env.json: Wokenv uses it as it is.
+# Anything set here is applied on top of it.
+# wp-env:
+#   phpVersion: "8.3"
+YAML
 		else
-			echo -e "${YELLOW}⚠️  Makefile already exists, skipped${NC}"
+			cat <<'YAML'
+# Everything below is a standard wp-env configuration, the same keys as
+# .wp-env.json: https://developer.wordpress.org/block-editor/reference-guides/packages/packages-env/
+wp-env:
+  phpVersion: "8.3"
+  phpmyadminPort: 9000
+  # The second, tests-only WordPress is deprecated in wp-env. Remove this
+  # line (and move phpmyadminPort under env.development) if you need it.
+  testsEnvironment: false
+  # core: WordPress/WordPress#7.1
+  # plugins:
+  #   - https://downloads.wordpress.org/plugin/query-monitor.zip
+  # config:
+  #   WP_DEBUG_DISPLAY: true
+YAML
 		fi
-	else
-		echo -e "${CYAN}Skipped Makefile creation. Use 'wokenv' commands.${NC}"
-	fi
+	} >"$dir/wokenv.yml"
 
-	# Summary
-	echo ""
-	echo -e "${CYAN}╔════════════════════════════════════════╗${NC}"
-	echo -e "${CYAN}║   Initialization Complete!             ║${NC}"
-	echo -e "${CYAN}╚════════════════════════════════════════╝${NC}"
-	echo ""
-	echo -e "${GREEN}Next steps:${NC}"
-	echo "  1. Review and customize your configuration files"
-	echo -e "  2. Run: ${CYAN}wokenv install${NC}     (install npm and composer dependencies - optional)"
-	echo -e "  3. Run: ${CYAN}wokenv start${NC}       (start WordPress)"
-	echo ""
-	echo -e "Access your site at: ${BLUE}http://localhost:8888${NC}"
-	echo -e "Admin: ${BLUE}http://localhost:8888/wp-admin${NC} (admin/password)"
-	echo ""
-	echo "Additional services:"
-	echo -e "  Mailpit (email):  ${BLUE}http://localhost:8025${NC}"
-	echo -e "  phpMyAdmin (db):  ${BLUE}http://localhost:9000${NC}"
-	echo ""
-	echo -e "For help: ${CYAN}wokenv help${NC}"
-	echo ""
+	success "Created wokenv.yml (type: $type)"
+	info "Next: ${BOLD}wokenv start${NC}"
 }
 
-# Main execution
-main() {
-	# No arguments - show help
-	if [ $# -eq 0 ]; then
-		show_help
-		exit 0
+cmd_start() {
+	load_project
+	wp_env start "$@"
+	mailpit_connect
+	if mailpit_enabled; then
+		info ""
+		success "Mailpit started at ${CYAN}http://localhost:$(project_value MAILPIT_PORT)${NC}"
 	fi
+}
 
-	command=$1
+cmd_stop() {
+	load_project
+	mailpit_disconnect
+	wp_env stop "$@"
+	compose down --remove-orphans >&2
+}
+
+cmd_destroy() {
+	local yes=""
+	if [ "${1:-}" = "--yes" ] || [ "${1:-}" = "-y" ]; then
+		yes=1
+		shift
+	fi
+	load_project
+	[ -n "$yes" ] && WOKENV_YES=1
+	confirm "This permanently deletes the WordPress environment of '$(basename "$PROJECT_DIR")', database included. Continue?" || {
+		info "Cancelled."
+		return 0
+	}
+	mailpit_disconnect
+	# Keep going when wp-env has nothing to destroy, e.g. after a failed start.
+	wp_env destroy --force "$@" || warn "wp-env could not destroy its environment: cleaning up the rest."
+	compose down --volumes --remove-orphans >&2
+	rm -rf "$STATE_DIR"
+	success "Environment destroyed. Your project files were not touched."
+}
+
+cmd_status() {
+	load_project
+	wp_env status "$@"
+	if mailpit_enabled && [ -n "$(compose ps --quiet mailpit 2>/dev/null)" ]; then
+		info "Mailpit: http://localhost:$(project_value MAILPIT_PORT)"
+	fi
+}
+
+# Runs a command in the WordPress CLI container, from the project directory.
+run_in_project() {
+	local container="$1"
 	shift
+	wp_env run "$container" --env-cwd="$(project_value ENV_CWD)" -- "$@"
+}
 
-	# Handle special commands
-	case $command in
-	init)
-		check_installation
-		init_project
-		exit 0
+cmd_doctor() {
+	local failed=0
+	info "${BOLD}Wokenv $WOKENV_VERSION${NC} ($WOKENV_DIR)"
+	if command -v docker >/dev/null 2>&1; then
+		success "docker: $(docker --version)"
+	else
+		warn "docker: not installed" && failed=1
+	fi
+	if docker compose version >/dev/null 2>&1; then
+		success "docker compose: $(docker compose version --short)"
+	else
+		warn "docker compose: v2 plugin not found" && failed=1
+	fi
+	if docker info >/dev/null 2>&1; then
+		success "Docker daemon: reachable"
+		if docker info --format '{{.SecurityOptions}}' | grep -Eq 'userns|rootless'; then
+			warn "Docker runs rootless or with userns-remap: file ownership in the containers will not match your user."
+		fi
+	else
+		warn "Docker daemon: not reachable" && failed=1
+	fi
+	if [ -S "${WOKENV_DOCKER_SOCKET:-/var/run/docker.sock}" ]; then
+		success "Docker socket: ${WOKENV_DOCKER_SOCKET:-/var/run/docker.sock}"
+	else
+		warn "Docker socket: ${WOKENV_DOCKER_SOCKET:-/var/run/docker.sock} not found (set WOKENV_DOCKER_SOCKET)"
+	fi
+	if [ "$(id -u)" = "0" ]; then
+		warn "Running as root: wp-env needs a regular user."
+	fi
+	if PROJECT_DIR=$(find_project_dir); then
+		success "Project: $PROJECT_DIR"
+	else
+		info "  Project: no wokenv.yml here (run 'wokenv init')"
+	fi
+	return "$failed"
+}
+
+cmd_self_update() {
+	command -v git >/dev/null 2>&1 || die "git is required to update Wokenv."
+	[ -d "$WOKENV_DIR/.git" ] || die "$WOKENV_DIR is not a git checkout: reinstall with curl -fsSL $INSTALL_URL | bash"
+	git -C "$WOKENV_DIR" pull --ff-only
+	docker pull "$DEFAULT_IMAGE" || warn "Could not pull $DEFAULT_IMAGE."
+	success "Wokenv $(tr -d '[:space:]' <"$WOKENV_DIR/VERSION")"
+}
+
+cmd_help() {
+	cat <<HELP
+${BOLD}Wokenv $WOKENV_VERSION${NC} - wp-env without Node.js on your machine
+
+${BOLD}Usage:${NC} wokenv <command> [arguments]
+
+${BOLD}Environment${NC}
+  ${GREEN}init${NC} [--type <type>]     Create wokenv.yml in the current directory
+  ${GREEN}start${NC} [--xdebug] [...]   Start WordPress (same options as 'wp-env start')
+  ${GREEN}stop${NC}                     Stop WordPress and free the ports
+  ${GREEN}restart${NC}                  Stop, then start
+  ${GREEN}status${NC}                   Show URLs and state of the environment
+  ${GREEN}logs${NC} [environment]       Show PHP and Docker logs
+  ${GREEN}reset${NC} [environment]      Reset the WordPress database
+  ${GREEN}destroy${NC} [--yes]          Delete containers, volumes and database
+
+${BOLD}Tools${NC} (run from anywhere inside the project)
+  ${GREEN}wp${NC} <args>                WP-CLI, e.g. wokenv wp plugin list
+  ${GREEN}composer${NC} <args>          Composer, in the project directory
+  ${GREEN}phpunit${NC} [args]           PHPUnit in the tests environment
+  ${GREEN}shell${NC} [container]        Bash in a container (default: cli)
+  ${GREEN}run${NC} <container> <cmd>    Any command in a wp-env container
+  ${GREEN}npm${NC} | ${GREEN}npx${NC} | ${GREEN}node${NC} <args>  Node.js tooling, in the current directory
+  ${GREEN}wp-env${NC} <args>            Call wp-env directly
+
+${BOLD}Wokenv${NC}
+  ${GREEN}doctor${NC}                   Check that this machine can run Wokenv
+  ${GREEN}self-update${NC}              Update Wokenv and its image
+  ${GREEN}version${NC}                  Show the Wokenv and wp-env versions
+  ${GREEN}help${NC}                     Show this message
+
+Documentation: https://github.com/wokenv/wokenv
+HELP
+}
+
+main() {
+	local command="${1:-help}"
+	[ $# -gt 0 ] && shift
+
+	case "$command" in
+	init) cmd_init "$@" ;;
+	start) cmd_start "$@" ;;
+	stop) cmd_stop "$@" ;;
+	restart)
+		cmd_stop
+		cmd_start "$@"
 		;;
-	self-update)
-		check_installation
-		self_update
-		exit 0
+	destroy) cmd_destroy "$@" ;;
+	status | info) cmd_status "$@" ;;
+	logs | reset | clean | cleanup | run)
+		load_project
+		wp_env "$command" "$@"
 		;;
-	self-install-deps)
-		check_installation
-		self_install_deps
-		exit 0
+	wp-env)
+		load_project
+		wp_env "$@"
 		;;
-	self-check)
-		check_installation
-		self_check
-		exit 0
+	wp | cli)
+		load_project
+		wp_env run cli -- wp "$@"
 		;;
-	self-info)
-		check_installation
-		self_info
-		exit 0
+	composer)
+		load_project
+		run_in_project cli composer "$@"
 		;;
-	help | --help | -h)
-		show_help
-		exit 0
+	phpunit | test)
+		load_project
+		run_in_project tests-cli phpunit "$@"
 		;;
+	shell)
+		load_project
+		wp_env run "${1:-cli}" -- bash
+		;;
+	npm | npx | node)
+		load_project
+		toolbox "$command" "$@"
+		;;
+	doctor) cmd_doctor ;;
+	self-update) cmd_self_update ;;
 	version | --version | -v)
-		echo "Wokenv v${WOKENV_VERSION}"
-		exit 0
+		printf 'wokenv %s\n' "$WOKENV_VERSION"
+		if PROJECT_DIR=$(find_project_dir) && docker info >/dev/null 2>&1; then
+			load_project
+			printf 'wp-env %s\n' "$(toolbox wp-env --version 2>/dev/null | tr -d '\r')"
+		fi
 		;;
+	help | --help | -h) cmd_help ;;
+	*) die "Unknown command '$command'. Run 'wokenv help'." ;;
 	esac
-
-	# For all other commands, check installation and use Makefile
-	check_installation
-
-	# Check project version compatibility (if wokenv.yml exists)
-	check_project_version
-
-	# Check for updates (non-blocking, background)
-	check_for_updates
-
-	# Delegate to Makefile
-	exec make -f "$WOKENV_DIR/Makefile" "$command" "$@"
 }
 
 main "$@"

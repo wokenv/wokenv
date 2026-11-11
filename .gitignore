@@ -52,5 +52,5 @@ megalinter-reports/
 *.cache
 core.*
 
-# Makefile local overrides
-Makefile.local
+# Wokenv runtime data (wp-env work directories, generated configuration)
+/var/

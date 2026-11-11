@@ -1,47 +1,49 @@
-# Wokenv Centralized Docker Compose
-# This file lives in ~/.wokenv/ and is used by all projects
-# Projects can extend with docker-compose.override.yml
+# Wokenv centralized Docker Compose
+# This file lives in ~/.wokenv/ and is used by all projects.
+# The wokenv CLI sets every variable below: do not run this file by hand.
 
 services:
+  # Runs wp-env (and node/npm) on behalf of the host. It is started on demand
+  # with `docker compose run --rm`, never with `up`.
   wokenv:
-    image: ${WOKENV_IMAGE:-frugan/wokenv:latest}
-    container_name: ${COMPOSE_PROJECT_NAME:-wokenv}-wokenv
-    command: tail -f /dev/null  # Keep container running
-    volumes:
-      - ${PROJECT_DIR:-.}:${PROJECT_DIR:-.}
-      - ${HOME}/.wp-env:/home/node/.wp-env
-      - /var/run/docker.sock:/var/run/docker.sock
-    working_dir: ${PROJECT_DIR:-.}
+    image: ${WOKENV_IMAGE}
+    profiles:
+      - tools
+    init: true
+    # No per-project network needed: wp-env talks to the Docker daemon only.
+    network_mode: bridge
+    working_dir: ${WOKENV_CWD}
     environment:
-      - USER_ID=${USER_ID:-1000}
-      - GROUP_ID=${GROUP_ID:-1000}
-    networks:
-      - wokenv
+      USER_ID: ${WOKENV_UID}
+      GROUP_ID: ${WOKENV_GID}
+      HOME: ${WOKENV_HOME_DIR}
+      # wp-env hands bind mounts to the host daemon, so its work directory
+      # must have the same path inside this container and on the host.
+      WP_ENV_HOME: ${WOKENV_STATE_DIR}/wp-env
+      WP_ENV_PORT:
+      WP_ENV_TESTS_PORT:
+      WP_ENV_MYSQL_PORT:
+      WP_ENV_TESTS_MYSQL_PORT:
+      WP_ENV_PHPMYADMIN_PORT:
+      WP_ENV_TESTS_PHPMYADMIN_PORT:
+      WP_ENV_CORE:
+      WP_ENV_PHP_VERSION:
+      WP_ENV_MARIADB_VERSION:
+      WP_ENV_LIFECYCLE_SCRIPT_AFTER_START:
+      WP_ENV_LIFECYCLE_SCRIPT_AFTER_CLEAN:
+      WP_ENV_LIFECYCLE_SCRIPT_AFTER_RESET:
+      WP_ENV_LIFECYCLE_SCRIPT_AFTER_CLEANUP:
+      WP_ENV_LIFECYCLE_SCRIPT_AFTER_DESTROY:
+    volumes:
+      - ${WOKENV_PROJECT_DIR}:${WOKENV_PROJECT_DIR}
+      - ${WOKENV_STATE_DIR}:${WOKENV_STATE_DIR}
+      - ${WOKENV_HOME_DIR}:${WOKENV_HOME_DIR}
+      - ${WOKENV_DIR}/lib:${WOKENV_DIR}/lib:ro
+      - ${WOKENV_DOCKER_SOCKET}:/var/run/docker.sock
 
   mailpit:
     image: axllent/mailpit:latest
-    container_name: ${COMPOSE_PROJECT_NAME:-wokenv}-mailpit
-    ports:
-      - "${MAILPIT_WEB_PORT:-8025}:8025"
-      - "${MAILPIT_SMTP_PORT:-1025}:1025"
-    networks:
-      - wokenv
-    restart: unless-stopped
-
-  phpmyadmin:
-    image: phpmyadmin:latest
-    container_name: ${COMPOSE_PROJECT_NAME:-wokenv}-phpmyadmin
     environment:
-      PMA_ARBITRARY: 1
-      PMA_HOST: ${COMPOSE_PROJECT_NAME:-wokenv}-mysql-1
-      PMA_USER: root
-      PMA_PASSWORD: password
-    ports:
-      - "${PHPMYADMIN_PORT:-9000}:80"
-    networks:
-      - wokenv
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
     restart: unless-stopped
-
-networks:
-  wokenv:
-    name: ${COMPOSE_PROJECT_NAME:-wokenv}-network
