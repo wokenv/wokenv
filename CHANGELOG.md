@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0](https://github.com/wokenv/wokenv/compare/v0.2.4...v1.0.0) (2026-11-16)
+
+### ⚠ BREAKING CHANGES
+
+* the Makefile, Makefile.local, the templates and the
+'version', 'project' and 'image.*' keys of wokenv.yml are gone. Run
+'wokenv init --force' in existing projects. Requires a frugan/wokenv
+image with Node.js >= 22.13 and wp-env 12.
+
+Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>
+
+### Features
+
+* make wokenv.yml the only project file and run wp-env 12 as the host user ([07770dc](https://github.com/wokenv/wokenv/commit/07770dcf29a5251f57c03d3805ca96790f752f1a))
+
+### Bug Fixes
+
+* route mail to Mailpit with a plugin instead of a mapped mu-plugin file ([f8b991f](https://github.com/wokenv/wokenv/commit/f8b991f94159910aceeb90d67f1c37fd468a20a4))
+
 ## [0.2.4](https://github.com/wokenv/wokenv/compare/v0.2.3...v0.2.4) (2026-01-14)
 
 ### Bug Fixes
