@@ -218,7 +218,7 @@ mailpit_enabled() {
 }
 
 # wp-env owns its Compose project, so Mailpit joins that network from the
-# outside, under the "mailpit" name the must-use plugin connects to.
+# outside, under the "mailpit" name the wokenv-mailpit plugin connects to.
 mailpit_connect() {
 	mailpit_enabled || return 0
 	compose up --detach --quiet-pull mailpit >&2

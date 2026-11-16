@@ -41,8 +41,7 @@ Run `wokenv start` again. To force wp-env to download sources and reconfigure Wo
 ## Emails do not reach Mailpit
 
 - Mailpit is connected to WordPress by `wokenv start`. If you started the containers in another way, run `wokenv start` again.
-- Check that the must-use plugin is loaded: `wokenv wp plugin list --status=must-use` must list `wokenv-mailpit`.
-- If you map `wp-content` or `wp-content/mu-plugins`, copy `~/.wokenv/lib/mu-plugins/wokenv-mailpit.php` into your own must-use plugins.
+- Check that the plugin is active: `wokenv wp plugin is-active wokenv-mailpit`. Wokenv adds it to `plugins`, so it is missing if an environment under `env` sets its own `plugins` list.
 - Only `wp_mail()` is routed. PHP's `mail()` function is not.
 
 ## A lifecycle script cannot find a command

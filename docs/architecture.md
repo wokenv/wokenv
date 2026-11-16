@@ -42,7 +42,7 @@ The image contains no Wokenv logic besides its entrypoint: `lib/` is mounted fro
 ├── docker-compose.yml            Wokenv container and Mailpit, shared by all projects
 ├── lib/
 │   ├── wokenv-config.cjs         wokenv.yml → .wp-env.json
-│   └── mu-plugins/               Must-use plugin that routes mail to Mailpit
+│   └── plugins/wokenv-mailpit/   Plugin that routes mail to Mailpit
 └── var/                          Runtime data, not part of the installation
     ├── home/                     HOME of the Wokenv container (npm cache)
     └── projects/<name>-<id>/
