@@ -42,9 +42,9 @@ Nothing is added when the `wp-env` section, or your `.wp-env.json`, already refe
 
 ### mailpit
 
-When enabled, [Mailpit](https://mailpit.axllent.org/) receives every email sent with `wp_mail()`, and shows it at <http://localhost:8025>. Wokenv does this with a must-use plugin mounted at `wp-content/mu-plugins/wokenv-mailpit.php`.
+When enabled, [Mailpit](https://mailpit.axllent.org/) receives every email sent with `wp_mail()`, and shows it at <http://localhost:8025>. Wokenv does this by adding its `wokenv-mailpit` plugin to the `plugins` of the wp-env configuration: it appears in the plugin list, and deactivating it stops the routing.
 
-If you map `wp-content` or `wp-content/mu-plugins` yourself, Wokenv cannot mount its plugin there: it prints a warning with the path of the file to copy into your own must-use plugins.
+An environment under `env` that sets its own `plugins` replaces the top-level list, as in wp-env: add `~/.wokenv/lib/plugins/wokenv-mailpit` to it to keep Mailpit there.
 
 ### image
 

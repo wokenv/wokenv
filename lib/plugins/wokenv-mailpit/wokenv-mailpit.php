@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Wokenv Mailpit
- * Description: Sends every WordPress email to the Mailpit container instead of the outside world.
+ * Description: Sends every WordPress email to the Mailpit container instead of the outside world. Added by Wokenv when mailpit is enabled in wokenv.yml.
  * Author: Wokenv
  * License: GPL-3.0-or-later
  */
