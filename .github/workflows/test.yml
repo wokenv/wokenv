@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Run ShellCheck
         run: shellcheck bin/wokenv install.sh tests/e2e.sh
@@ -33,10 +33,10 @@ jobs:
         node: [22, 24]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Checkout the image sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: wokenv/base
           path: .base
